@@ -1,0 +1,10 @@
+**/bin
+**/obj
+**/node_modules
+.dev
+artifacts
+coverage
+src/AliceIdentityService.Web/wwwroot/admin
+docs/design/approved-mockup.html
+package-lock.json
+**/packages.lock.json

@@ -1,0 +1,25 @@
+# Build and local runtime output
+**/bin/
+**/obj/
+**/node_modules/
+src/AliceIdentityService.Web/wwwroot/admin/
+artifacts/
+coverage/
+TestResults/
+*.tsbuildinfo
+# Certificates and secrets
+.dev/
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+*.pfx
+*.p12
+*.pem
+*.key
+# Editors and OS
+.vs/
+.idea/
+.DS_Store
+*.user
+*.suo

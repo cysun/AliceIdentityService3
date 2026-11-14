@@ -1,0 +1,264 @@
+<style>
+#alice-preview { --ais-bg:light-dark(#f5f7fb,#111821); --ais-surface:light-dark(#ffffff,#1a2330); --ais-text:light-dark(#182435,#e8edf5); --ais-muted:light-dark(#647185,#a1aec0); --ais-line:light-dark(#e3e8f0,#344052); --ais-blue:light-dark(#2859c7,#9abaff); --ais-solid:#2859c7; --ais-tint:light-dark(#edf3ff,#24364e); --ais-green:light-dark(#18724c,#83d6b0); --ais-green-bg:light-dark(#edf8f1,#203c31); --ais-amber:light-dark(#926318,#eec581); --ais-amber-bg:light-dark(#fff6e7,#3d3221); --ais-danger:light-dark(#b43a42,#ffadb2); --ais-radius:12px; --ais-pad:15px; color:var(--ais-text); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; width:100%; }
+#alice-preview * { box-sizing:border-box; }
+#alice-preview h1,#alice-preview h2,#alice-preview h3,#alice-preview p { margin:0; font-family:inherit; }
+#alice-preview h1 { font-size:29px;line-height:1.22;letter-spacing:-.8px;font-weight:650; }
+#alice-preview h2 { font-size:17px;line-height:1.4;font-weight:600;letter-spacing:-.2px; }
+#alice-preview h3 { font-size:14px;font-weight:600; }
+#alice-preview button,#alice-preview input,#alice-preview select { font:inherit; }
+#alice-preview button { cursor:inherit; }
+#alice-preview button:disabled { opacity:.5;cursor:not-allowed; }
+#alice-preview button:focus-visible,#alice-preview input:focus-visible,#alice-preview select:focus-visible { outline:3px solid var(--ais-blue);outline-offset:3px; }
+#alice-preview svg { flex-shrink:0; }
+#alice-preview .ais-previewbar { display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 90px 14px 0;font-size:12px; }
+#alice-preview .ais-previewbar label { display:flex;align-items:center;gap:8px; }
+#alice-preview .ais-previewbar select { max-width:210px;border:1px solid var(--ais-line);background:var(--ais-surface);color:var(--ais-text);border-radius:7px;padding:7px 28px 7px 10px;font-size:12px; }
+#alice-preview .ais-previewlabel { font-weight:600;display:flex;align-items:center;gap:6px; }
+#alice-preview .ais-previewnote { color:var(--ais-muted);font-size:12px; }
+#alice-preview .ais-previewjump { margin-left:auto;background:transparent;border:0;color:var(--ais-blue);padding:7px 0;font-size:12px; }
+#alice-preview .ais-window { background:var(--ais-bg);border:1px solid var(--ais-line);border-radius:14px;overflow:hidden;min-height:690px;position:relative; }
+#alice-preview .ais-brand { display:flex;align-items:center;gap:10px;font-size:16px;font-weight:650;letter-spacing:-.3px; }
+#alice-preview .ais-mark { display:flex;align-items:center;justify-content:center;background:var(--ais-solid);color:#fff;width:34px;height:36px;border-radius:10px; }
+#alice-preview .ais-mark svg { width:23px;height:23px; }
+#alice-preview .ais-muted { color:var(--ais-muted); }
+#alice-preview .ais-small { font-size:12px; }
+#alice-preview .ais-eyebrow { font-size:11px;letter-spacing:1.7px;font-weight:650;text-transform:uppercase;color:var(--ais-muted); }
+#alice-preview .ais-button { border:1px solid var(--ais-line);border-radius:8px;background:var(--ais-surface);color:var(--ais-text);padding:9px 14px;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;font-size:13px;font-weight:550;white-space:nowrap; }
+#alice-preview .ais-button:hover { background:var(--ais-bg); }
+#alice-preview .ais-primary { background:var(--ais-solid);border-color:var(--ais-solid);color:#fff; }
+#alice-preview .ais-primary:hover { filter:brightness(1.08);background:var(--ais-solid); }
+#alice-preview .ais-link { background:none;border:0;padding:0;color:var(--ais-blue);font-size:13px;text-align:left; }
+#alice-preview .ais-link:hover { text-decoration:underline; }
+#alice-preview .ais-danger { color:var(--ais-danger); }
+#alice-preview .ais-wide { width:100%; }
+#alice-preview .ais-inline { display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
+#alice-preview .ais-between { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap; }
+#alice-preview .ais-stack { display:grid;gap:18px; }
+#alice-preview .ais-field { display:grid;gap:7px;min-width:0;font-size:13px;font-weight:550; }
+#alice-preview .ais-field input,#alice-preview .ais-field select { width:100%;min-width:0;background:var(--ais-surface);color:var(--ais-text);border:1px solid var(--ais-line);border-radius:8px;min-height:42px;padding:10px 12px;font-size:14px;font-weight:400; }
+#alice-preview input::placeholder { color:var(--ais-muted);opacity:.8; }
+#alice-preview .ais-field small { font-size:12px;color:var(--ais-muted);font-weight:400; }
+#alice-preview .ais-password { position:relative; }
+#alice-preview .ais-password input { padding-right:45px; }
+#alice-preview .ais-eye { position:absolute;right:5px;top:3px;width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:5px;color:var(--ais-muted);background:transparent; }
+#alice-preview .ais-check { display:flex;align-items:center;gap:8px;font-size:13px; }
+#alice-preview .ais-check input { accent-color:var(--ais-solid);width:16px;height:16px; }
+#alice-preview .ais-two { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+#alice-preview .ais-accounthead { display:flex;align-items:center;justify-content:space-between;padding:25px 32px;gap:14px;background:var(--ais-surface);border-bottom:1px solid var(--ais-line); }
+#alice-preview .ais-accountbody { display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;padding:48px 50px;min-height:550px; }
+#alice-preview .ais-intro { align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:23px;max-width:345px; }
+#alice-preview .ais-intro h1 { font-size:40px;line-height:1.13;letter-spacing:-1.5px;max-width:310px; }
+#alice-preview .ais-intro p { font-size:15px;line-height:1.75;max-width:310px;color:var(--ais-muted); }
+#alice-preview .ais-appstack { margin-top:12px;display:grid;gap:10px;max-width:300px; }
+#alice-preview .ais-appitem { display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--ais-line);border-radius:10px;background:var(--ais-surface); }
+#alice-preview .ais-appicon { width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--ais-tint);color:var(--ais-blue); }
+#alice-preview .ais-appitem .ais-appcheck { margin-left:auto;color:var(--ais-green); }
+#alice-preview .ais-accountcard { background:var(--ais-surface);border:1px solid var(--ais-line);border-radius:var(--ais-radius);padding:30px;box-shadow:0 8px 30px light-dark(#18243506,#00000014);width:100%;max-width:420px;justify-self:center; }
+#alice-preview .ais-accounttitle { margin-bottom:25px;display:grid;gap:8px; }
+#alice-preview .ais-accounttitle h2 { font-size:25px;letter-spacing:-.6px; }
+#alice-preview .ais-accountfoot { border-top:1px solid var(--ais-line);margin-top:24px;padding-top:20px;text-align:center;font-size:13px;color:var(--ais-muted); }
+#alice-preview .ais-bottom { display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 32px;font-size:11px;color:var(--ais-muted); }
+#alice-preview[data-layout="Centered"] .ais-intro { display:none; }
+#alice-preview[data-layout="Centered"] .ais-accountbody { grid-template-columns:1fr; }
+#alice-preview .ais-oidc { display:grid;justify-items:center;align-content:center;gap:25px;padding:48px 22px;min-height:690px; }
+#alice-preview .ais-oidc .ais-brand { justify-content:center; }
+#alice-preview .ais-oidc .ais-accountcard { padding:32px; }
+#alice-preview .ais-oidc .ais-accounttitle { text-align:center;gap:10px; }
+#alice-preview .ais-oidc .ais-accounttitle p { font-size:14px;overflow-wrap:anywhere; }
+#alice-preview .ais-oidc .ais-accounttitle strong { color:var(--ais-text);font-weight:600; }
+#alice-preview .ais-context { display:flex;align-items:center;justify-content:center;gap:7px;color:var(--ais-muted);font-size:12px;margin-bottom:22px;overflow-wrap:anywhere; }
+#alice-preview .ais-oidcfooter { text-align:center;font-size:11px;color:var(--ais-muted); }
+#alice-preview .ais-successmark { width:48px;height:48px;background:var(--ais-green-bg);color:var(--ais-green);border-radius:50%;display:grid;place-items:center;margin-bottom:20px; }
+#alice-preview .ais-notice { border-radius:8px;padding:12px 14px;background:var(--ais-tint);color:var(--ais-text);font-size:13px;display:flex;align-items:flex-start;gap:9px; }
+#alice-preview .ais-notice svg { margin-top:2px;color:var(--ais-blue); }
+#alice-preview .ais-admin { display:grid;grid-template-columns:185px minmax(0,1fr);min-height:690px; }
+#alice-preview .ais-sidebar { background:var(--ais-surface);border-right:1px solid var(--ais-line);padding:25px 16px 18px;display:flex;flex-direction:column;gap:30px; }
+#alice-preview .ais-sidebar .ais-brand { font-size:15px;margin-left:3px; }
+#alice-preview .ais-nav { display:grid;gap:5px; }
+#alice-preview .ais-nav button { border:0;background:transparent;color:var(--ais-muted);padding:11px 12px;display:flex;align-items:center;gap:11px;font-size:13px;text-align:left;border-radius:8px;font-weight:500; }
+#alice-preview .ais-nav button:hover { background:var(--ais-bg); }
+#alice-preview .ais-nav button[aria-current="page"] { background:var(--ais-tint);color:var(--ais-blue);font-weight:600; }
+#alice-preview .ais-nav .ais-eyebrow { padding:0 12px 9px;font-size:10px; }
+#alice-preview .ais-sidebottom { margin-top:auto;border-top:1px solid var(--ais-line);padding-top:18px;display:grid;gap:15px; }
+#alice-preview .ais-avatar { width:34px;height:34px;flex-shrink:0;border-radius:50%;background:var(--ais-tint);color:var(--ais-blue);display:grid;place-items:center;font-size:12px;font-weight:600; }
+#alice-preview .ais-main { min-width:0; }
+#alice-preview .ais-topbar { height:65px;border-bottom:1px solid var(--ais-line);background:var(--ais-surface);display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:12px;color:var(--ais-muted); }
+#alice-preview .ais-content { padding:28px;display:grid;gap:24px; }
+#alice-preview .ais-pagetitle { display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap; }
+#alice-preview .ais-pagetitle h1 { font-size:27px; }
+#alice-preview .ais-pagetitle p { margin-top:6px;color:var(--ais-muted);font-size:13px; }
+#alice-preview .ais-metrics { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px; }
+#alice-preview .ais-metric { border:1px solid var(--ais-line);background:var(--ais-surface);border-radius:var(--ais-radius);padding:17px;display:grid;gap:10px; }
+#alice-preview .ais-metrichead { display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ais-muted);font-size:12px; }
+#alice-preview .ais-number { font-size:30px;letter-spacing:-1px;line-height:1.2;font-variant-numeric:tabular-nums; }
+#alice-preview .ais-panel { background:var(--ais-surface);border:1px solid var(--ais-line);border-radius:var(--ais-radius);min-width:0;overflow:hidden; }
+#alice-preview .ais-panelhead { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:18px 20px;border-bottom:1px solid var(--ais-line); }
+#alice-preview .ais-panelhead p { color:var(--ais-muted);font-size:12px;margin-top:4px; }
+#alice-preview .ais-panelbody { padding:20px; }
+#alice-preview .ais-bottomgrid { display:grid;grid-template-columns:1.1fr 1fr;gap:18px;align-items:start; }
+#alice-preview .ais-table { width:100%;border-collapse:collapse;text-align:left;font-size:13px;table-layout:auto; }
+#alice-preview .ais-table th { font-weight:500;color:var(--ais-muted);font-size:11px;background:var(--ais-bg);white-space:nowrap; }
+#alice-preview .ais-table td,#alice-preview .ais-table th { padding:var(--ais-pad) 18px;border-bottom:1px solid var(--ais-line);vertical-align:middle; }
+#alice-preview .ais-table tbody tr:last-child td { border-bottom:0; }
+#alice-preview .ais-table tbody tr:hover { background:var(--ais-bg); }
+#alice-preview .ais-person { display:flex;align-items:center;gap:11px;min-width:0; }
+#alice-preview .ais-persontext { min-width:0;overflow-wrap:anywhere; }
+#alice-preview .ais-persontext strong { display:block;font-weight:550; }
+#alice-preview .ais-persontext small { display:block;color:var(--ais-muted);font-size:12px;margin-top:2px; }
+#alice-preview .ais-badge { display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 7px;font-size:11px;font-weight:550;white-space:nowrap;color:var(--ais-green);background:var(--ais-green-bg); }
+#alice-preview .ais-badge.wait { color:var(--ais-amber);background:var(--ais-amber-bg); }
+#alice-preview .ais-badge.admin { color:var(--ais-blue);background:var(--ais-tint); }
+#alice-preview .ais-badge.neutral { color:var(--ais-muted);background:var(--ais-bg); }
+#alice-preview .ais-rowlink { border:0;background:transparent;padding:0;color:var(--ais-text);font-weight:550;text-align:left; }
+#alice-preview .ais-rowlink:hover { color:var(--ais-blue);text-decoration:underline; }
+#alice-preview .ais-listrow { padding:15px 20px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--ais-line); }
+#alice-preview .ais-listrow:last-child { border:0; }
+#alice-preview .ais-listrow .ais-link { margin-left:auto; }
+#alice-preview .ais-toolbar { padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--ais-line); }
+#alice-preview .ais-search { position:relative;flex:1;min-width:160px; }
+#alice-preview .ais-search svg { position:absolute;left:12px;top:12px;color:var(--ais-muted); }
+#alice-preview .ais-search input { width:100%;padding:10px 12px 10px 36px;border:1px solid var(--ais-line);border-radius:8px;background:var(--ais-surface);color:var(--ais-text);font-size:13px; }
+#alice-preview .ais-filter { padding:9px 10px;border:1px solid var(--ais-line);border-radius:8px;background:var(--ais-surface);color:var(--ais-text);font-size:13px;min-height:40px;max-width:100%; }
+#alice-preview .ais-tablefoot { padding:13px 18px;border-top:1px solid var(--ais-line);font-size:12px;color:var(--ais-muted); }
+#alice-preview .ais-back { display:inline-flex;align-items:center;gap:6px; }
+#alice-preview .ais-profilehead { display:flex;align-items:center;gap:15px; }
+#alice-preview .ais-profilehead .ais-avatar { width:56px;height:56px;font-size:19px; }
+#alice-preview .ais-profilehead h1 { font-size:25px; }
+#alice-preview .ais-tabs { display:flex;gap:22px;border-bottom:1px solid var(--ais-line);padding:0 20px; }
+#alice-preview .ais-tabs button { border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ais-muted);padding:15px 0 13px;font-size:13px; }
+#alice-preview .ais-tabs button[aria-pressed="true"] { color:var(--ais-blue);border-bottom-color:var(--ais-blue);font-weight:600; }
+#alice-preview .ais-details { display:grid;grid-template-columns:1fr 1fr;gap:24px 30px;padding:24px; }
+#alice-preview .ais-details dt { font-size:12px;color:var(--ais-muted);margin-bottom:6px; }
+#alice-preview .ais-details dd { margin:0;font-size:14px;overflow-wrap:anywhere; }
+#alice-preview .ais-formfooter { display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--ais-line);padding:16px 20px;background:var(--ais-bg); }
+#alice-preview .ais-divider { border:0;border-top:1px solid var(--ais-line);margin:22px 0; }
+#alice-preview .ais-empty { text-align:center;padding:42px 20px;display:grid;gap:8px;color:var(--ais-muted); }
+#alice-preview .ais-toast { padding:12px 16px;border:1px solid var(--ais-line);border-radius:9px;display:flex;align-items:center;gap:9px;background:var(--ais-green-bg);color:var(--ais-green);font-size:13px;margin-bottom:16px; }
+#alice-preview .ais-toast:empty { display:none; }
+#alice-preview dialog { border:1px solid var(--ais-line);background:var(--ais-surface);color:var(--ais-text);border-radius:14px;padding:25px;max-width:430px;width:calc(100% - 32px);box-shadow:0 15px 70px #0003; }
+#alice-preview dialog::backdrop { background:#09132266; }
+#alice-preview dialog h2 { margin-bottom:8px; }
+#alice-preview dialog p { color:var(--ais-muted);font-size:13px;margin-bottom:20px; }
+#alice-preview .ais-claimcode { font:12px/1.5 ui-monospace,SFMono-Regular,monospace;word-break:break-word; }
+#alice-preview .ais-mobileonly { display:none; }
+@media (max-width:800px) { #alice-preview .ais-accountbody { gap:25px;padding:35px 28px;grid-template-columns:.85fr 1fr; } #alice-preview .ais-intro h1 { font-size:33px; } #alice-preview .ais-accountcard { padding:25px; } #alice-preview .ais-admin { grid-template-columns:155px minmax(0,1fr); } #alice-preview .ais-sidebar { padding:23px 10px; } #alice-preview .ais-sidebar .ais-brand { font-size:13px;gap:7px; } #alice-preview .ais-content { padding:22px 18px;gap:20px; } #alice-preview .ais-topbar { padding:0 18px; } #alice-preview .ais-table td,#alice-preview .ais-table th { padding:13px 12px; } #alice-preview .ais-bottomgrid { grid-template-columns:1fr; } #alice-preview .ais-optional { display:none; } }
+@media (max-width:600px) { #alice-preview .ais-previewbar { padding-right:0;gap:8px; } #alice-preview .ais-previewjump { margin-left:0; } #alice-preview .ais-previewnote { width:100%; } #alice-preview .ais-previewbar select { max-width:190px; } #alice-preview .ais-accounthead { padding:19px; } #alice-preview .ais-accounthead .ais-small { display:none; } #alice-preview .ais-accountbody { grid-template-columns:1fr;padding:30px 18px;min-height:520px; } #alice-preview .ais-intro { display:none; } #alice-preview .ais-accountcard { padding:24px; } #alice-preview .ais-bottom { padding:18px; } #alice-preview .ais-admin { grid-template-columns:1fr; } #alice-preview .ais-sidebar { padding:16px;gap:14px;border-right:0;border-bottom:1px solid var(--ais-line); } #alice-preview .ais-sidebar .ais-brand { font-size:16px; } #alice-preview .ais-nav { grid-template-columns:repeat(4,1fr);gap:4px; } #alice-preview .ais-nav button { padding:10px 7px;justify-content:center;gap:6px;font-size:12px; } #alice-preview .ais-nav .ais-eyebrow,#alice-preview .ais-sidebottom { display:none; } #alice-preview .ais-topbar { height:46px; } #alice-preview .ais-content { padding:22px 16px; } #alice-preview .ais-metrics { gap:8px; } #alice-preview .ais-metric { padding:12px; } #alice-preview .ais-metrichead { font-size:11px; } #alice-preview .ais-metrichead svg { display:none; } #alice-preview .ais-number { font-size:25px; } #alice-preview .ais-metric .ais-small { font-size:11px; } #alice-preview .ais-table th,#alice-preview .ais-table td { padding:13px 10px; } #alice-preview .ais-person { gap:8px; } #alice-preview .ais-table .ais-avatar { display:none; } #alice-preview .ais-persontext small { font-size:11px; } #alice-preview .ais-details,#alice-preview .ais-two { grid-template-columns:1fr; } #alice-preview .ais-profilehead { align-items:flex-start; } #alice-preview .ais-profilehead h1 { font-size:22px; } #alice-preview .ais-pagetitle h1 { font-size:25px; } #alice-preview .ais-window { border-radius:10px; } }
+@media (max-width:600px) { #alice-preview .ais-admin { grid-template-columns:minmax(0,1fr); } #alice-preview .ais-sidebar { min-width:0; } #alice-preview .ais-nav { grid-template-columns:repeat(4,minmax(0,1fr)); } #alice-preview .ais-nav button { min-width:0; } #alice-preview .ais-topbar { min-height:46px;height:auto;gap:12px;padding-top:10px;padding-bottom:10px; } #alice-preview .ais-metric { min-width:0; } }
+@media (max-width:380px) { #alice-preview .ais-nav button { flex-direction:column;gap:5px;padding:8px 3px; } #alice-preview .ais-topbar>span:last-child { display:none; } #alice-preview .ais-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } #alice-preview .ais-metric:last-child { grid-column:1/-1; } #alice-preview .ais-badge svg { display:none; } #alice-preview .ais-accountcard { padding:20px; } #alice-preview .ais-previewbar select { max-width:165px; } }
+@media (pointer:coarse) { #alice-preview input,#alice-preview select { font-size:16px!important; } #alice-preview .ais-button,#alice-preview .ais-nav button,#alice-preview .ais-link,#alice-preview .ais-rowlink { min-height:44px; } }
+</style>
+<div id="alice-preview" data-layout="Split" aria-label="Alice Identity interface preview">
+  <div class="ais-previewbar">
+    <span class="ais-previewlabel">Alice / UI preview</span>
+    <label>Page <select id="ais-screen" aria-label="Preview page">
+      <optgroup label="Account"><option value="login">Login · direct visit</option><option value="oidc">Login · OIDC visit</option><option value="register">Register</option><option value="forgot">Forgot password</option><option value="email">Check your email</option><option value="reset">Reset password</option><option value="profile">My profile</option></optgroup>
+      <optgroup label="Administration"><option value="dashboard">Overview</option><option value="users">Users</option><option value="detail">User details &amp; claims</option><option value="edit">Edit user</option><option value="add">Add user</option><option value="clients">Clients</option><option value="scopes">Scopes</option></optgroup>
+    </select></label>
+    <button class="ais-previewjump cursor-interaction" type="button" data-go="dashboard">Explore administration →</button>
+    <span class="ais-previewnote">Interactive concept · fictional data</span>
+  </div>
+  <div id="ais-toast" class="ais-toast" role="status" aria-live="polite"></div>
+  <div id="ais-stage" class="ais-window"></div>
+  <dialog id="ais-dialog" aria-labelledby="ais-dialog-title"></dialog>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('alice-preview');
+  const stage = root.querySelector('#ais-stage');
+  const picker = root.querySelector('#ais-screen');
+  const toast = root.querySelector('#ais-toast');
+  const dialog = root.querySelector('#ais-dialog');
+  const screenNames = {login:'Login · direct visit',oidc:'Login · OIDC visit',register:'Register',forgot:'Forgot password',email:'Check your email',reset:'Reset password',profile:'My profile',dashboard:'Overview',users:'Users',detail:'User details & claims',edit:'Edit user',add:'Add user',clients:'Clients',scopes:'Scopes'};
+  const users = [
+    {id:'usr_01',first:'Maya',last:'Chen',email:'maya.chen@example.com',screen:'Maya Chen',confirmed:true,joined:'Nov 11, 2026',recent:true,claims:[['department','Computer Science'],['role','faculty']]},
+    {id:'usr_02',first:'Oliver',last:'Reed',email:'oliver.reed@example.com',screen:'Oliver Reed',confirmed:false,joined:'Nov 10, 2026',recent:true,claims:[]},
+    {id:'usr_03',first:'Sofia',last:'Patel',email:'sofia.patel@example.com',screen:'Sofia Patel',confirmed:true,joined:'Nov 9, 2026',recent:true,claims:[['department','Mathematics']]},
+    {id:'usr_04',first:'James',last:'Park',email:'james.park@example.com',screen:'James Park',confirmed:true,joined:'Nov 5, 2026',recent:true,claims:[['ais-admin','true']]},
+    {id:'usr_05',first:'Amara',last:'Okafor',email:'amara.okafor@example.com',screen:'Amara Okafor',confirmed:false,joined:'Nov 3, 2026',recent:true,claims:[]},
+    {id:'usr_06',first:'Ethan',last:'Rivera',email:'ethan.rivera@example.com',screen:'Ethan Rivera',confirmed:true,joined:'Oct 20, 2026',recent:true,claims:[['role','staff']]},
+    {id:'usr_07',first:'Nina',last:'Brooks',email:'nina.brooks@example.com',screen:'Nina Brooks',confirmed:true,joined:'Sep 18, 2026',recent:false,claims:[['department','Computer Science']]},
+    {id:'usr_08',first:'Alex',last:'Morgan',email:'alex.morgan@example.com',screen:'Alex Morgan',confirmed:true,joined:'Aug 24, 2026',recent:false,claims:[['ais-admin','true']]}
+  ];
+  let state={page:'oidc',context:'oidc',user:'usr_01',tab:'profile',query:'',filter:'all',emailKind:'register'};
+  const design={app:'Campus Portal',accent:'Blue',density:'Comfortable'};
+  const saved=window.openai?.widgetState?.privateContent;
+  if(saved?.version===2 && screenNames[saved.page]) { state.page=saved.page;state.context=saved.context==='oidc'?'oidc':'direct';if(users.some(u=>u.id===saved.user)) state.user=saved.user; }
+  if(saved?.design) for(const k of ['app','accent','density']) if(typeof saved.design[k]==='string') design[k]=saved.design[k];
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const icon=n=>`<i data-lucide="${n}" aria-hidden="true"></i>`;
+  const button=(text,attrs='',primary=false)=>`<button type="button" class="ais-button ${primary?'ais-primary':''} cursor-interaction" ${attrs}>${text}</button>`;
+  const go=(text,page)=>`<button type="button" class="ais-link cursor-interaction" data-go="${page}">${text}</button>`;
+  const brand=()=>`<div class="ais-brand"><span class="ais-mark">${icon('fingerprint')}</span><span>Alice Identity</span></div>`;
+  const initials=u=>esc(u.first.charAt(0)+u.last.charAt(0));
+  const fullname=u=>esc(u.first+' '+u.last);
+  const isAdmin=u=>u.claims.some(c=>c[0]==='ais-admin');
+  const badge=u=>`<span class="ais-badge ${u.confirmed?'':'wait'}">${icon(u.confirmed?'check':'clock-3')}${u.confirmed?'Confirmed':'Unconfirmed'}</span>`;
+  const person=u=>`<div class="ais-person"><span class="ais-avatar">${initials(u)}</span><div class="ais-persontext"><button type="button" class="ais-rowlink cursor-interaction" data-user="${u.id}">${fullname(u)}</button><small>${esc(u.email)}</small></div></div>`;
+  const field=(label,name,type='text',value='',placeholder='',required=true)=>`<label class="ais-field">${label}<input name="${name}" type="${type}" value="${esc(value)}" placeholder="${esc(placeholder)}" ${required?'required':''} autocomplete="off"></label>`;
+  const password=(label='Password',name='password',confirm=false)=>`<label class="ais-field">${label}<span class="ais-password"><input name="${name}" type="password" required minlength="8" placeholder="${confirm?'Re-enter your password':'Enter your password'}" autocomplete="new-password"><button type="button" class="ais-eye cursor-interaction" data-eye aria-label="Show ${label.toLowerCase()}">${icon('eye')}</button></span></label>`;
+  function icons(){globalThis.lucide?.createIcons({attrs:{width:16,height:16}});}
+  function persist(){window.openai?.setWidgetState?.({modelContent:{previewPage:screenNames[state.page],accountLayout:state.context==='oidc'?'Centered':'Split',oidcApplication:design.app,accent:design.accent,adminDensity:design.density},privateContent:{version:2,page:state.page,context:state.context,user:state.user,design:{...design}}})?.catch(()=>{});}
+  function notify(message){toast.innerHTML=icon('circle-check')+`<span>${esc(message)}</span>`;icons();}
+  function navigate(page,user){if(!screenNames[page])return;if(page==='oidc')state.context='oidc';else if(!['register','forgot','email','reset'].includes(page))state.context='direct';state.page=page;if(user)state.user=user;state.tab='profile';toast.innerHTML='';render();persist();}
+  function applyDesign(){root.dataset.layout=state.context==='oidc'?'Centered':'Split';root.style.setProperty('--ais-pad',design.density==='Compact'?'10px':'15px');const teal=design.accent==='Teal';root.style.setProperty('--ais-solid',teal?'#147268':'#2859c7');root.style.setProperty('--ais-blue',teal?'light-dark(#147268,#8bd5c9)':'light-dark(#2859c7,#9abaff)');root.style.setProperty('--ais-tint',teal?'light-dark(#eaf6f3,#213c3a)':'light-dark(#edf3ff,#24364e)');}
+  const accountTitle=(title,sub)=>`<div class="ais-accounttitle"><h2>${title}</h2><p class="ais-muted ais-small">${sub}</p></div>`;
+  function account(){
+    const oidc=state.context==='oidc';
+    const loginPage=oidc?'oidc':'login';
+    let content='';
+    if(['login','oidc'].includes(state.page)) content=accountTitle(oidc?'Sign in':'Welcome back',oidc?`to continue to <strong>${esc(design.app)}</strong>`:'Sign in to your Alice account.')+`<form data-form="login" class="ais-stack">${field('Email address','email','email','','you@example.com')}${password()}<div class="ais-between"><label class="ais-check"><input type="checkbox" name="remember">Remember me</label>${go('Forgot password?','forgot')}</div><button class="ais-button ais-primary ais-wide cursor-interaction" type="submit">Sign in ${icon('arrow-right')}</button></form><div class="ais-accountfoot">New to Alice? ${go('Create an account','register')}</div>`;
+    if(state.page==='register') content=accountTitle('Create your account',oidc?`to continue to <strong>${esc(design.app)}</strong>`:'One account for your connected applications.')+`<form data-form="register" class="ais-stack"><div class="ais-two">${field('First name','first')}${field('Last name','last')}</div>${field('Email address','email','email','','you@example.com')}${password()}<span class="ais-small ais-muted" style="margin-top:-10px">Use at least 8 characters.</span>${password('Confirm password','confirm',true)}<button class="ais-button ais-primary ais-wide cursor-interaction" type="submit">Create account ${icon('arrow-right')}</button></form><div class="ais-accountfoot">Already have an account? ${go('Sign in',loginPage)}</div>`;
+    if(state.page==='forgot') content=accountTitle('Forgot your password?','Enter your email and we’ll send you a link to reset it.')+`<form data-form="forgot" class="ais-stack">${field('Email address','email','email','','you@example.com')}<button class="ais-button ais-primary ais-wide cursor-interaction" type="submit">Send reset link ${icon('arrow-right')}</button></form><div class="ais-accountfoot">${go('← Back to sign in',loginPage)}</div>`;
+    if(state.page==='email') content=`<div class="ais-successmark">${icon('mail-check')}</div>`+accountTitle('Check your email',state.emailKind==='reset'?'If an account exists for that email address, you’ll receive a password reset link.':'We’ve sent you a confirmation link. Open it to verify your email and finish setting up your account.')+`<div class="ais-notice">${icon('info')}<span>Can’t find the email? Check your spam folder.</span></div><div style="margin-top:24px">${button('Back to sign in',`data-go="${loginPage}"`,true)}</div>`;
+    if(state.page==='reset') content=accountTitle('Choose a new password','Create a new password for your Alice account.')+`<form data-form="reset" class="ais-stack">${field('Email address','email','email','','you@example.com')}${password('New password')}${password('Confirm new password','confirm',true)}<button class="ais-button ais-primary ais-wide cursor-interaction" type="submit">Reset password ${icon('arrow-right')}</button></form><div class="ais-accountfoot">${go('← Back to sign in',loginPage)}</div>`;
+    if(state.page==='profile') content=accountTitle('My profile','Manage how your name appears in connected apps.')+`<form data-form="profile" class="ais-stack"><div class="ais-two">${field('First name','first','text','Alex')}${field('Last name','last','text','Morgan')}</div>${field('Screen name','screen','text','Alex Morgan')}<div class="ais-field">Email address<div class="ais-between"><span class="ais-muted">alex.morgan@example.com</span><span class="ais-badge">Confirmed</span></div></div><button class="ais-button ais-primary ais-wide cursor-interaction" type="submit">Save changes</button></form><div class="ais-accountfoot">${go('Reset my password','forgot')}</div>`;
+    if(oidc) return `<div class="ais-oidc">${brand()}<section class="ais-accountcard" aria-label="${screenNames[state.page]} form">${['forgot','email','reset'].includes(state.page)?`<div class="ais-context">${icon('arrow-right')}<span>Continuing to ${esc(design.app)}</span></div>`:''}${content}</section><div class="ais-oidcfooter">© 2026 Alice Identity Service</div></div>`;
+    return `<div class="ais-accounthead">${brand()}<span class="ais-small ais-muted">Your account. Your applications.</span></div><div class="ais-accountbody"><section class="ais-intro"><div class="ais-eyebrow">Alice Identity Service</div><h1>One account.<br>More possibilities.</h1><p>A familiar place to sign in, manage your account, and access the applications you use.</p><div class="ais-appstack"><div class="ais-appitem"><span class="ais-appicon">${icon('graduation-cap')}</span><div><h3>Campus Portal</h3><span class="ais-small ais-muted">Your everyday essentials</span></div><span class="ais-appcheck">${icon('check')}</span></div><div class="ais-appitem"><span class="ais-appicon">${icon('book-open')}</span><div><h3>Course Manager</h3><span class="ais-small ais-muted">Teaching and learning</span></div><span class="ais-appcheck">${icon('check')}</span></div><div class="ais-appitem"><span class="ais-appicon">${icon('users')}</span><div><h3>Team Workspace</h3><span class="ais-small ais-muted">Work, connected</span></div><span class="ais-appcheck">${icon('check')}</span></div></div></section><section class="ais-accountcard" aria-label="${screenNames[state.page]} form">${content}</section></div><div class="ais-bottom"><span>© 2026 Alice Identity Service</span><span>One place to manage your identity</span></div>`;
+  }
+  function title(h,sub,actions=''){return `<div class="ais-pagetitle"><div><h1>${h}</h1><p>${sub}</p></div>${actions}</div>`;}
+  function tableRows(list,compact=false){return list.map(u=>`<tr><td>${person(u)}</td><td>${badge(u)}</td>${compact?'':`<td class="ais-optional"><span class="ais-badge ${isAdmin(u)?'admin':'neutral'}">${isAdmin(u)?'Administrator':'User'}</span></td><td class="ais-optional ais-small ais-muted">${u.joined}</td>`}</tr>`).join('');}
+  function dashboard(){const pending=users.filter(u=>!u.confirmed);return title('Overview','A clear view of your identity service.',button(icon('plus')+' Add user','data-go="add"',true))+`<div class="ais-metrics"><div class="ais-metric"><div class="ais-metrichead">Total users ${icon('users')}</div><div class="ais-number">${users.length}</div><span class="ais-small ais-muted">Across all applications</span></div><div class="ais-metric"><div class="ais-metrichead">New registrations ${icon('user-plus')}</div><div class="ais-number">${users.filter(u=>u.recent).length}</div><span class="ais-small ais-muted">In the last 30 days</span></div><div class="ais-metric"><div class="ais-metrichead">Unconfirmed ${icon('mail')}</div><div class="ais-number">${pending.length}</div><button type="button" class="ais-link ais-small cursor-interaction" data-pending>Review accounts →</button></div></div><section class="ais-panel"><div class="ais-panelhead"><div><h2>Recent registrations</h2><p>The newest people in your directory</p></div>${go('View all users →','users')}</div><table class="ais-table"><thead><tr><th>User</th><th>Email status</th><th class="ais-optional">Access</th><th class="ais-optional">Joined</th></tr></thead><tbody>${tableRows(users.slice(0,4))}</tbody></table></section><div class="ais-bottomgrid"><section class="ais-panel"><div class="ais-panelhead"><h2>Awaiting confirmation</h2><span class="ais-badge wait">${pending.length}</span></div>${pending.length?pending.map(u=>`<div class="ais-listrow"><div class="ais-persontext"><button class="ais-rowlink cursor-interaction" type="button" data-user="${u.id}">${fullname(u)}</button><small>${esc(u.email)}</small></div></div>`).join(''):'<div class="ais-empty">All email addresses are confirmed.</div>'}</section><section class="ais-panel"><div class="ais-panelhead"><h2>Connected applications</h2>${go('View all','clients')}</div>${['Campus Portal','Course Manager','Team Workspace'].map((n,i)=>`<div class="ais-listrow"><span class="ais-appicon">${icon(['graduation-cap','book-open','users'][i])}</span><div><h3>${n}</h3><span class="ais-small ais-muted">Authorization code · PKCE</span></div></div>`).join('')}</section></div>`;}
+  function userList(){return title('Users','Manage accounts, email verification, and access.',button(icon('plus')+' Add user','data-go="add"',true))+`<section class="ais-panel"><div class="ais-toolbar"><label class="ais-search">${icon('search')}<input id="ais-search" type="search" aria-label="Search users" placeholder="Search by name or email…" value="${esc(state.query)}"></label><select class="ais-filter" id="ais-filter" aria-label="Filter by email status"><option value="all">All email statuses</option><option value="confirmed">Confirmed</option><option value="unconfirmed">Unconfirmed</option></select></div><table class="ais-table"><thead><tr><th>User</th><th>Email status</th><th class="ais-optional">Access</th><th class="ais-optional">Joined</th></tr></thead><tbody id="ais-userrows"></tbody></table><div class="ais-tablefoot" id="ais-resultcount"></div></section>`;}
+  function filterUsers(){const q=state.query.toLowerCase().trim();const filtered=users.filter(u=>(u.first+' '+u.last+' '+u.email).toLowerCase().includes(q)&&(state.filter==='all'||(state.filter==='confirmed')===u.confirmed));root.querySelector('#ais-userrows').innerHTML=filtered.length?tableRows(filtered):'<tr><td colspan="4"><div class="ais-empty"><h3>No users found</h3><span>Try a different name, email, or status.</span></div></td></tr>';root.querySelector('#ais-resultcount').textContent=`Showing ${filtered.length} of ${users.length} users`;icons();}
+  function userDetail(){const u=users.find(x=>x.id===state.user)||users[0];if(!u)return userList();return `${go('← Back to users','users')}<div class="ais-pagetitle"><div class="ais-profilehead"><div class="ais-avatar">${initials(u)}</div><div><h1>${fullname(u)}</h1><p>${esc(u.email)}</p><div style="margin-top:10px" class="ais-inline">${badge(u)}${isAdmin(u)?'<span class="ais-badge admin">Administrator</span>':''}</div></div></div>${button(icon('pencil')+' Edit user','data-go="edit"',true)}</div><section class="ais-panel"><div class="ais-tabs"><button type="button" class="cursor-interaction" aria-pressed="${state.tab==='profile'}" data-tab="profile">Profile</button><button type="button" class="cursor-interaction" aria-pressed="${state.tab==='claims'}" data-tab="claims">Claims (${u.claims.length})</button></div>${state.tab==='profile'?`<dl class="ais-details"><div><dt>First name</dt><dd>${esc(u.first)}</dd></div><div><dt>Last name</dt><dd>${esc(u.last)}</dd></div><div><dt>Screen name</dt><dd>${esc(u.screen)}</dd></div><div><dt>Registered</dt><dd>${u.joined}</dd></div><div><dt>User ID</dt><dd class="ais-claimcode">${u.id}</dd></div><div><dt>Email status</dt><dd>${u.confirmed?'Confirmed':'Awaiting confirmation'}</dd></div></dl>`:`<div class="ais-panelhead"><p>Claims shared according to each application’s allowed scopes.</p>${button(icon('plus')+' Add claim','data-action="add-claim"')}</div>${u.claims.length?`<table class="ais-table"><thead><tr><th>Type</th><th>Value</th><th><span class="ais-small">Action</span></th></tr></thead><tbody>${u.claims.map((c,i)=>`<tr><td class="ais-claimcode">${esc(c[0])}</td><td class="ais-claimcode">${esc(c[1])}</td><td><button type="button" class="ais-link ais-danger cursor-interaction" data-removeclaim="${i}">Remove</button></td></tr>`).join('')}</tbody></table>`:'<div class="ais-empty"><h3>No custom claims</h3><span>Add a claim to define this user’s application access.</span></div>'}`}</section><section class="ais-panel"><div class="ais-panelhead"><h2>Account actions</h2></div><div class="ais-panelbody ais-between"><div><h3>Reset password</h3><p class="ais-small ais-muted" style="margin-top:4px">Set a new password from the user editor.</p></div>${button('Edit password','data-action="edit-password"')}</div><div class="ais-panelbody ais-between" style="border-top:1px solid var(--ais-line)"><div><h3 class="ais-danger">Delete account</h3><p class="ais-small ais-muted" style="margin-top:4px">Remove this user and revoke their tokens.</p></div>${button('Delete user','data-action="delete-user"')}</div></section>`;}
+  function editUser(){const add=state.page==='add';const u=add?{first:'',last:'',email:'',screen:'',confirmed:true}:users.find(x=>x.id===state.user);if(!u)return userList();return go(add?'← Back to users':'← Back to profile',add?'users':'detail')+title(add?'Add user':'Edit user',add?'Create an account and set its initial password.':`Update ${esc(u.first)}’s profile and account settings.`)+`<form data-form="${add?'add':'edit'}" class="ais-panel"><div class="ais-panelhead"><h2>Personal information</h2></div><div class="ais-panelbody ais-stack"><div class="ais-two">${field('First name','first','text',u.first)}${field('Last name','last','text',u.last)}</div>${add?field('Email address','email','email','','you@example.com'):`<div class="ais-field">Email address<span class="ais-muted">${esc(u.email)}</span></div>`}${field('Screen name','screen','text',u.screen,'Name shown to other people',false)}${!add?`<label class="ais-check"><input name="confirmed" type="checkbox" ${u.confirmed?'checked':''}>Email address confirmed</label>`:`<div class="ais-notice">${icon('info')}<span>Accounts created by an administrator have a confirmed email address.</span></div>`}</div><div class="ais-panelhead" style="border-top:1px solid var(--ais-line)"><div><h2>${add?'Initial password':'Change password'}</h2>${add?'':'<p>Leave blank to keep the current password.</p>'}</div></div><div class="ais-panelbody ais-two">${add?password():`<label class="ais-field">New password<input name="password" type="password" minlength="8" autocomplete="new-password" placeholder="Optional"></label>`}${add?password('Confirm password','confirm',true):`<label class="ais-field">Confirm new password<input name="confirm" type="password" autocomplete="new-password" placeholder="Re-enter new password"></label>`}</div><div class="ais-formfooter">${button('Cancel',`data-go="${add?'users':'detail'}"`)}<button class="ais-button ais-primary cursor-interaction" type="submit">${add?'Create user':'Save changes'}</button></div></form>`;}
+  function simpleDirectory(kind){const clients=kind==='clients';const rows=clients?[['Campus Portal','campus-portal','openid · profile · email'],['Course Manager','course-manager','openid · profile · email · courses'],['Team Workspace','team-workspace','openid · profile · email · workspace']]:[['Profile','profile','name · given_name · family_name'],['Email','email','email · email_verified'],['Courses','courses','department · role'],['Workspace','workspace','role']];return title(clients?'Clients':'Scopes',clients?'Applications registered with Alice Identity.':'Define the information applications may request.')+`<section class="ais-panel"><div class="ais-panelhead"><h2>${clients?'Registered applications':'Available scopes'}</h2><span class="ais-badge neutral">${rows.length}</span></div><table class="ais-table"><thead><tr><th>${clients?'Application':'Scope'}</th><th>${clients?'Allowed scopes':'Claims'}</th></tr></thead><tbody>${rows.map(r=>`<tr><td><h3>${r[0]}</h3><div class="ais-small ais-muted">${r[1]}</div></td><td class="ais-claimcode">${r[2]}</td></tr>`).join('')}</tbody></table></section>`;}
+  function admin(){const active=['detail','edit','add'].includes(state.page)?'users':state.page;const body=state.page==='dashboard'?dashboard():state.page==='users'?userList():state.page==='detail'?userDetail():['edit','add'].includes(state.page)?editUser():simpleDirectory(state.page);return `<div class="ais-admin"><aside class="ais-sidebar">${brand()}<nav class="ais-nav" aria-label="Administration"><div class="ais-eyebrow">Administration</div>${[['dashboard','layout-dashboard','Overview'],['users','users','Users'],['clients','panels-top-left','Clients'],['scopes','key-round','Scopes']].map(([p,i,n])=>`<button type="button" class="cursor-interaction" data-go="${p}" ${active===p?'aria-current="page"':''}>${icon(i)}${n}</button>`).join('')}</nav><div class="ais-sidebottom"><div class="ais-inline" style="gap:9px"><span class="ais-avatar">AM</span><div><h3>Alex Morgan</h3><span class="ais-small ais-muted">Administrator</span></div></div>${go('My account →','profile')}${go('Sign out','login')}</div></aside><div class="ais-main"><div class="ais-topbar"><span>Administration <span style="padding:0 8px">/</span> ${screenNames[active]}</span><span class="ais-small">Alice Identity Service</span></div><main class="ais-content">${body}</main></div></div>`;}
+  function render(){picker.value=state.page;const accountPage=['login','oidc','register','forgot','email','reset','profile'].includes(state.page);stage.innerHTML=accountPage?account():admin();root.querySelector('.ais-previewjump').dataset.go=accountPage?'dashboard':'login';root.querySelector('.ais-previewjump').textContent=accountPage?'Explore administration →':'Preview account pages →';if(state.page==='users'){root.querySelector('#ais-filter').value=state.filter;filterUsers();}applyDesign();icons();}
+  function openDialog(html){dialog.innerHTML=html;icons();dialog.showModal();}
+  root.addEventListener('click',event=>{
+    const target=event.target.closest('button');if(!target)return;
+    if(target.type==='submit'&&target.form){event.preventDefault();if(target.form.reportValidity())handleForm(target.form);return;}
+    if(target.dataset.go){navigate(target.dataset.go);return;}
+    if(target.dataset.user){navigate('detail',target.dataset.user);return;}
+    if(target.hasAttribute('data-eye')){const input=target.parentElement.querySelector('input');input.type=input.type==='password'?'text':'password';target.setAttribute('aria-label',input.type==='password'?'Show password':'Hide password');target.innerHTML=icon(input.type==='password'?'eye':'eye-off');icons();return;}
+    if(target.hasAttribute('data-pending')){state.filter='unconfirmed';state.query='';navigate('users');return;}
+    if(target.dataset.tab){state.tab=target.dataset.tab;render();return;}
+    if(target.hasAttribute('data-close')){dialog.close();return;}
+    if(target.dataset.action==='edit-password'){navigate('edit');root.querySelector('input[name="password"]').focus();return;}
+    if(target.dataset.action==='add-claim'){openDialog(`<h2 id="ais-dialog-title">Add a claim</h2><p>Define a claim type and value for this user.</p><form data-form="claim" class="ais-stack">${field('Claim type','type','text','','department')}${field('Claim value','value','text','','Computer Science')}<div class="ais-inline" style="justify-content:flex-end">${button('Cancel','data-close')}<button type="submit" class="ais-button ais-primary cursor-interaction">Add claim</button></div></form>`);return;}
+    if(target.dataset.removeclaim!==undefined){const u=users.find(u=>u.id===state.user);const index=Number(target.dataset.removeclaim);openDialog(`<h2 id="ais-dialog-title">Remove claim?</h2><p>Remove <strong>${esc(u.claims[index][0])}</strong> from ${fullname(u)}?</p><div class="ais-inline" style="justify-content:flex-end">${button('Cancel','data-close')}${button('Remove claim',`data-confirmclaim="${index}"`,true)}</div>`);return;}
+    if(target.dataset.confirmclaim!==undefined){users.find(u=>u.id===state.user).claims.splice(Number(target.dataset.confirmclaim),1);dialog.close();render();notify('Claim removed in this preview.');return;}
+    if(target.dataset.action==='delete-user'){const u=users.find(u=>u.id===state.user);openDialog(`<h2 id="ais-dialog-title">Delete ${fullname(u)}?</h2><p>This removes the account and revokes its tokens. This preview only changes fictional data.</p><div class="ais-inline" style="justify-content:flex-end">${button('Cancel','data-close')}${button('Delete account','data-confirmdelete',true)}</div>`);return;}
+    if(target.hasAttribute('data-confirmdelete')){users.splice(users.findIndex(u=>u.id===state.user),1);state.user=users[0]?.id;dialog.close();navigate('users');notify('User deleted in this preview.');}
+  });
+  root.addEventListener('input',event=>{if(event.target.id==='ais-search'){state.query=event.target.value;filterUsers();}if(event.target.form?.elements.confirm)event.target.form.elements.confirm.setCustomValidity('');});
+  root.addEventListener('change',event=>{if(event.target===picker)navigate(picker.value);if(event.target.id==='ais-filter'){state.filter=event.target.value;filterUsers();}});
+  root.addEventListener('submit',event=>{event.preventDefault();handleForm(event.target);});
+  root.addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target.tagName==='INPUT'&&event.target.form){event.preventDefault();if(event.target.form.reportValidity())handleForm(event.target.form);}});
+  function handleForm(form){
+    const kind=form.dataset.form;if(!kind)return;const values=Object.fromEntries(new FormData(form));
+    if(form.elements.confirm&&values.password!==values.confirm){form.elements.confirm.setCustomValidity('The passwords do not match.');form.elements.confirm.reportValidity();return;}
+    if(kind==='login'){if(state.context==='oidc'){form.reset();notify(`Sign-in preview complete. The real flow would now return to ${design.app}.`);}else{navigate('dashboard');notify('Signed in to the fictional admin preview.');}}
+    if(kind==='register'||kind==='forgot'){state.emailKind=kind==='forgot'?'reset':'register';navigate('email');}
+    if(kind==='reset'){navigate(state.context==='oidc'?'oidc':'login');notify('Password reset preview complete. You can now sign in.');}
+    if(kind==='profile'){notify('Profile changes saved in this preview.');}
+    if(kind==='edit'){const u=users.find(u=>u.id===state.user);Object.assign(u,{first:values.first.trim(),last:values.last.trim(),screen:values.screen.trim()||values.first+' '+values.last,confirmed:values.confirmed==='on'});navigate('detail');notify('User changes saved in this preview.');}
+    if(kind==='add'){if(users.some(u=>u.email.toLowerCase()===values.email.toLowerCase())){form.elements.email.setCustomValidity('This email already exists in the preview.');form.elements.email.reportValidity();form.elements.email.addEventListener('input',()=>form.elements.email.setCustomValidity(''),{once:true});return;}const u={id:'usr_'+Date.now(),first:values.first.trim(),last:values.last.trim(),email:values.email,screen:values.screen||values.first+' '+values.last,confirmed:true,joined:'Nov 11, 2026',recent:true,claims:[]};users.unshift(u);state.query='';state.filter='all';navigate('detail',u.id);notify('User created in this preview.');}
+    if(kind==='claim'){users.find(u=>u.id===state.user).claims.push([values.type.trim(),values.value.trim()]);dialog.close();state.tab='claims';render();notify('Claim added in this preview.');}
+  }
+  window.addEventListener('openai:set_globals',event=>{const next=event.detail?.globals?.widgetState?.privateContent;if(next?.version===2&&screenNames[next.page]){state.page=next.page;state.context=next.context==='oidc'?'oidc':'direct';if(users.some(u=>u.id===next.user))state.user=next.user;if(next.design)Object.assign(design,next.design);render();}});
+  render();
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:()=>{render();persist();}});tweak.addSelect(design,'app',{label:'Example OIDC application',options:['Campus Portal','Course Manager','Team Workspace']});tweak.addSelect(design,'accent',{label:'Accent',options:['Blue','Teal']});tweak.addSelect(design,'density',{label:'Admin table density',options:['Comfortable','Compact']});}
+})();
+</script>

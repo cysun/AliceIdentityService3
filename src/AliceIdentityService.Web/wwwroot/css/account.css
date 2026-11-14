@@ -1,0 +1,361 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  color: var(--ais-foreground);
+  background: var(--ais-background);
+  font: 14px/1.5 var(--ais-font);
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+a {
+  color: var(--ais-link);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--ais-link);
+  outline-offset: 3px;
+}
+.preview-banner {
+  background: var(--ais-tint);
+  border-bottom: 1px solid var(--ais-border);
+  padding: 10px 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.preview-banner nav {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.account-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  min-height: calc(100svh - 70px);
+  display: flex;
+  flex-direction: column;
+}
+.account-header {
+  padding: 28px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+  color: var(--ais-foreground);
+}
+.brand:hover {
+  text-decoration: none;
+}
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 38px;
+  background: var(--ais-primary);
+  border-radius: 10px;
+}
+.brand-mark img {
+  filter: brightness(0) invert(1);
+}
+.muted {
+  color: var(--ais-muted);
+}
+.tagline {
+  font-size: 12px;
+}
+.account-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 70px;
+  align-items: center;
+  padding: 35px 66px 55px;
+}
+.account-intro {
+  display: grid;
+  gap: 24px;
+  max-width: 370px;
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 1.7px;
+  color: var(--ais-muted);
+}
+h1 {
+  font-size: 42px;
+  line-height: 1.14;
+  letter-spacing: -1.5px;
+  font-weight: 650;
+}
+.intro-copy {
+  color: var(--ais-muted);
+  font-size: 15px;
+  line-height: 1.75;
+  max-width: 330px;
+}
+.connected-apps {
+  display: grid;
+  gap: 12px;
+  max-width: 320px;
+  margin-top: 8px;
+}
+.connected-app {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 15px;
+  border: 1px solid var(--ais-border);
+  border-radius: 10px;
+  background: var(--ais-surface);
+}
+.app-initial {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--ais-tint);
+  color: var(--ais-link);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+.connected-app strong {
+  font-weight: 550;
+}
+.connected-app small {
+  display: block;
+  color: var(--ais-muted);
+  font-size: 12px;
+}
+.check {
+  margin-left: auto;
+  color: var(--ais-success);
+}
+.account-panel {
+  background: var(--ais-surface);
+  border: 1px solid var(--ais-border);
+  border-radius: var(--ais-radius);
+  padding: 32px;
+  width: 100%;
+  max-width: 430px;
+  justify-self: center;
+  box-shadow: 0 8px 30px #18243506;
+}
+.account-title {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+h2 {
+  font-size: 26px;
+  line-height: 1.3;
+  letter-spacing: -0.6px;
+  font-weight: 650;
+}
+.account-title p {
+  color: var(--ais-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.account-title strong {
+  color: var(--ais-foreground);
+  font-weight: 600;
+}
+.fields {
+  display: grid;
+  gap: 20px;
+}
+.field {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 550;
+  min-width: 0;
+}
+.field input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ais-border);
+  border-radius: 8px;
+  background: var(--ais-surface);
+  color: var(--ais-foreground);
+  padding: 11px 12px;
+  font-weight: 400;
+}
+input::placeholder {
+  color: var(--ais-muted);
+}
+.password-field {
+  position: relative;
+}
+.password-field input {
+  padding-right: 60px;
+}
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  padding: 4px;
+  font-size: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ais-muted);
+}
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ais-primary);
+}
+.primary-button {
+  padding: 11px 15px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ais-primary);
+  color: white;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.primary-button:hover {
+  filter: brightness(1.1);
+}
+.two-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+.account-panel-footer {
+  border-top: 1px solid var(--ais-border);
+  margin-top: 26px;
+  padding-top: 23px;
+  text-align: center;
+  color: var(--ais-muted);
+  font-size: 13px;
+}
+.account-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 24px 36px;
+  font-size: 11px;
+  color: var(--ais-muted);
+}
+.oidc {
+  align-items: center;
+  justify-content: center;
+  padding: 32px 22px;
+}
+.oidc .account-header {
+  padding: 18px 0 28px;
+}
+.oidc .account-main {
+  display: block;
+  flex: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 430px;
+}
+.oidc .account-title {
+  text-align: center;
+}
+.oidc .account-footer {
+  justify-content: center;
+  padding-top: 28px;
+}
+.preview-result {
+  color: var(--ais-link);
+  background: var(--ais-tint);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+}
+@media (max-width: 850px) {
+  .account-main {
+    gap: 28px;
+    padding: 30px;
+  }
+  h1 {
+    font-size: 35px;
+  }
+  .account-panel {
+    padding: 25px;
+  }
+}
+@media (max-width: 650px) {
+  .preview-banner {
+    padding: 10px 16px;
+  }
+  .account-header {
+    padding: 22px;
+  }
+  .tagline,
+  .account-intro {
+    display: none;
+  }
+  .account-main {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+  .account-footer {
+    padding: 24px;
+    flex-wrap: wrap;
+  }
+  .oidc {
+    padding: 22px 16px;
+  }
+  .two-fields {
+    grid-template-columns: 1fr;
+  }
+}
+@media (pointer: coarse) {
+  input {
+    font-size: 16px !important;
+  }
+  .password-toggle {
+    min-height: 30px;
+  }
+}
