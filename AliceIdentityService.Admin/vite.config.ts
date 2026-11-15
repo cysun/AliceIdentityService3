@@ -3,10 +3,11 @@ import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
+import { adminAccess, backendRoutes } from './scripts/admin-access.js';
 
 export default defineConfig(({ command, mode }) => ({
   base: '/admin/',
-  plugins: [react(), tailwindcss()],
+  plugins: [adminAccess(), react(), tailwindcss()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
     host: 'localhost',
@@ -20,8 +21,9 @@ export default defineConfig(({ command, mode }) => ({
           }
         : undefined,
     proxy: {
-      '^/(Account(?:/|$)|api(?:/|$)|connect(?:/|$)|health(?:/|$|\\?)|css/|js/|brand/|$)': {
+      [backendRoutes]: {
         target: 'http://127.0.0.1:5442',
+        xfwd: true,
       },
     },
   },

@@ -100,8 +100,8 @@ export function AdminShell() {
               <small>Sample administrator</small>
             </div>
           </div>
-          <a href="/Account/Login">
-            Account preview <ArrowUpRight size={14} />
+          <a href="/Account">
+            Your account / sign out <ArrowUpRight size={14} />
           </a>
         </div>
       </aside>
@@ -127,7 +127,8 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 2 preview</strong> · Sample data. Authentication is not connected.
+            <strong>Step 3 preview</strong> · Administrator access required. Data and identity below
+            are samples.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>

@@ -1,6 +1,6 @@
 # Step 2 review
 
-Step 2 remains **uncommitted**. Step 3 has not started. The approved UI is unchanged.
+Step 2 is **approved and committed**. The checklist and verification below record the Step 2 review. Current work is documented in [Step 3](step-3.md).
 
 ## Database workflow
 

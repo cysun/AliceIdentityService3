@@ -1,4 +1,4 @@
-@model AccountPreviewModel
+@model AccountPageModel
 @{
     Layout = null;
     var contextPreview = Model.IsOidc ? "oidc" : null;
@@ -17,7 +17,7 @@
 </head>
 <body>
     <div class="preview-banner">
-        <span><strong>AIS3 · Step 2</strong> Interface preview — authentication is not connected. Use sample values only.</span>
+        <span><strong>AIS3 · Step 3</strong> Direct sign-in is connected. Registration, recovery, and OIDC remain previews.</span>
         <nav aria-label="Preview navigation">
             <a href="/Account/Login">Direct login</a>
             <a href="/Account/Login?preview=oidc&amp;app=campus-portal">OIDC login</a>
@@ -52,40 +52,83 @@
                     }
                     else
                     {
-                        <p>@(Model.Page == "Register" ? "One account for your connected applications." : Model.Page == "ForgotPassword" ? "Enter your email to request a password reset link." : "Sign in to your AIS account.")</p>
+                        <p>@(Model.Page switch
+                        {
+                            "Register" => "One account for your connected applications.",
+                            "ForgotPassword" => "Enter your email to request a password reset link.",
+                            "Home" => "Your AIS account session is active.",
+                            "Logout" => "This will sign you out of AIS on this browser.",
+                            "AccessDenied" => "Administrator access is required to open this page.",
+                            _ => "Sign in to your AIS account."
+                        })</p>
                     }
                 </div>
-                <div class="fields">
-                    @if (Model.Page == "Register")
-                    {
-                        <div class="two-fields"><label class="field" for="first-name">First name<input id="first-name" autocomplete="off" /></label><label class="field" for="last-name">Last name<input id="last-name" autocomplete="off" /></label></div>
-                    }
-                    <label class="field" for="email">Email address<input id="email" type="email" autocomplete="off" placeholder="you@example.com" /></label>
-                    @if (Model.Page != "ForgotPassword")
-                    {
-                        <div class="field"><label for="password">Password</label><span class="password-field"><input id="password" type="password" autocomplete="new-password" placeholder="Enter your password" /><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false">Show</button></span></div>
-                    }
-                    @if (Model.Page == "Register")
-                    {
-                        <label class="field" for="confirm-password">Confirm password<input id="confirm-password" type="password" autocomplete="new-password" placeholder="Re-enter your password" /></label>
-                    }
-                    @if (Model.Page == "Login")
-                    {
-                        <div class="form-options"><label class="checkbox"><input type="checkbox" />Remember me</label><a asp-action="ForgotPassword" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">Forgot password?</a></div>
-                    }
-                    <button type="button" class="primary-button" data-preview-action>@(Model.Page == "Register" ? "Create account" : Model.Page == "ForgotPassword" ? "Send reset link" : "Sign in") <span aria-hidden="true">→</span></button>
-                    <p class="preview-result" role="status" hidden>This is a visual preview. No account request was sent.</p>
-                </div>
-                <div class="account-panel-footer">
-                    @if (Model.Page == "Login")
-                    {
-                        <span>New to AIS? <a asp-action="Register" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">Create an account</a></span>
-                    }
-                    else
-                    {
-                        <a asp-action="Login" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">← Back to sign in</a>
-                    }
-                </div>
+                @if (Model.Page == "Login" && !Model.IsOidc)
+                {
+                    <partial name="_LoginForm" model="Model.Login" />
+                }
+                else if (Model.Page == "Home")
+                {
+                    <div class="fields">
+                        <p class="signed-in-name">@User.Identity?.Name</p>
+                        @if (User.HasClaim(claim => claim.Type == AisConstants.AdminClaim))
+                        {
+                            <a class="primary-button" href="/admin/">Open administration <span aria-hidden="true">→</span></a>
+                        }
+                        <form asp-action="SignOutAccount" method="post" class="fields"><button class="primary-button" type="submit">Sign out</button></form>
+                    </div>
+                }
+                else if (Model.Page == "Logout")
+                {
+                    <form asp-action="SignOutAccount" method="post" class="fields">
+                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                        <button class="primary-button" type="submit">Sign out</button>
+                        <a asp-action="Home">Stay signed in</a>
+                    </form>
+                }
+                else if (Model.Page == "AccessDenied")
+                {
+                    <div class="fields"><a asp-action="Home">Back to your account</a>
+                    @if (User.Identity?.IsAuthenticated == true) { <a asp-action="Logout">Sign out to use another account</a> }
+                    </div>
+                }
+                else
+                {
+                    <div class="fields">
+                        @if (Model.Page == "Register")
+                        {
+                            <div class="two-fields"><label class="field" for="first-name">First name<input id="first-name" autocomplete="off" /></label><label class="field" for="last-name">Last name<input id="last-name" autocomplete="off" /></label></div>
+                        }
+                        <label class="field" for="email">Email address<input id="email" type="email" autocomplete="off" placeholder="you@example.com" /></label>
+                        @if (Model.Page != "ForgotPassword")
+                        {
+                            <div class="field"><label for="password">Password</label><span class="password-field"><input id="password" type="password" autocomplete="new-password" placeholder="Enter your password" /><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false">Show</button></span></div>
+                        }
+                        @if (Model.Page == "Register")
+                        {
+                            <label class="field" for="confirm-password">Confirm password<input id="confirm-password" type="password" autocomplete="new-password" placeholder="Re-enter your password" /></label>
+                        }
+                        @if (Model.Page == "Login")
+                        {
+                            <div class="form-options"><label class="checkbox"><input type="checkbox" />Remember me</label><a asp-action="ForgotPassword" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">Forgot password?</a></div>
+                        }
+                        <button type="button" class="primary-button" data-preview-action>@(Model.Page == "Register" ? "Create account" : Model.Page == "ForgotPassword" ? "Send reset link" : "Sign in") <span aria-hidden="true">→</span></button>
+                        <p class="preview-result" role="status" hidden>This is a visual preview. No account request was sent.</p>
+                    </div>
+                }
+                @if (Model.Page is "Login" or "Register" or "ForgotPassword")
+                {
+                    <div class="account-panel-footer">
+                        @if (Model.Page == "Login")
+                        {
+                            <span>New to AIS? <a asp-action="Register" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">Create an account</a></span>
+                        }
+                        else
+                        {
+                            <a asp-action="Login" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">← Back to sign in</a>
+                        }
+                    </div>
+                }
             </section>
         </main>
         <footer class="account-footer"><span>© @DateTime.UtcNow.Year Alice Identity Service</span>@if (!Model.IsOidc) { <span>One place to manage your identity</span> }</footer>

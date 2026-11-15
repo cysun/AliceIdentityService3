@@ -1,6 +1,6 @@
 # AIS3 implementation plan
 
-Each step ends with working software, automated checks where meaningful, a manual review checklist, and an explicit stop for review. Step 1 is committed. Step 2 has been simplified and left uncommitted for review. Step 3 has not started.
+Each step ends with working software, automated checks where meaningful, a manual review checklist, and an explicit stop for review. Steps 1 and 2 are approved and committed. Step 3 is implemented and uncommitted for review. Step 4 has not started.
 
 | Step                              | Deliverable                                                                                                                                                       | Review gate                                                                                          |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -20,4 +20,4 @@ Each step ends with working software, automated checks where meaningful, a manua
 | 14 — AIS2 migration               | Rehearsed data migration with validation reports.                                                                                                                 | Compare users/clients/scopes and hashes; test migrated accounts/clients and rollback.                |
 | 15 — Production cutover           | Final migration, release checks and operational handoff.                                                                                                          | Approved cutover, smoke tests and recovery plan.                                                     |
 
-Future steps may be refined at their start. Do not implement a later step before its review gate. Step 2 adds persistence beneath the approved UI; real login waits for Step 3.
+Future steps may be refined at their start. Do not implement a later step before its review gate. Step 3 connects direct login/logout and the server-side administrator boundary while retaining preview-only OIDC, registration, recovery, and admin data. Live React session handling and data remain Step 7. See the [Step 3 review](reviews/step-3.md) and stop for approval before Step 4.

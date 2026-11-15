@@ -22,12 +22,15 @@ public static class ServiceCollectionExtensions
             options.Stores.SchemaVersion = IdentitySchemaVersions.Version1;
             options.Stores.MaxLengthForKeys = 0;
             options.SignIn.RequireConfirmedEmail = true;
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
             options.ClaimsIdentity.UserNameClaimType = Claims.Name;
             options.ClaimsIdentity.UserIdClaimType = Claims.Subject;
             options.ClaimsIdentity.RoleClaimType = Claims.Role;
             options.ClaimsIdentity.EmailClaimType = Claims.Email;
-        }).AddEntityFrameworkStores<AisDbContext>();
-        // Persistence only: authentication and the OIDC server start in later steps.
+        }).AddEntityFrameworkStores<AisDbContext>().AddSignInManager();
+        // The OIDC server starts in Step 4; only its persistence is registered here.
         services.AddOpenIddict().AddCore(options => options.UseEntityFrameworkCore().UseDbContext<AisDbContext>());
         services.AddScoped<BootstrapService>();
         return services;

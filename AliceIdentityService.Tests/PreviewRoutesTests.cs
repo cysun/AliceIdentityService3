@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace AliceIdentityService.Tests;
 
-public sealed class PreviewFactory : WebApplicationFactory<Program>
+public class PreviewFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -24,7 +24,7 @@ public sealed class PreviewFactory : WebApplicationFactory<Program>
 
 public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<PreviewFactory>
 {
-    private readonly HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    private readonly HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
 
     [Fact]
     public async Task DirectLoginIsServerRenderedWithoutTheReactBundle()
@@ -34,7 +34,9 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
         Assert.Contains("Welcome back", html);
         Assert.Contains("/js/account.js", html);
         Assert.DoesNotContain("/admin/assets/", html);
-        Assert.DoesNotContain("<form", html);
+        Assert.Contains("<form", html);
+        Assert.Contains("__RequestVerificationToken", html);
+        Assert.Contains("autocomplete=\"current-password\"", html);
     }
 
     [Fact]
@@ -71,10 +73,11 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     }
 
     [Fact]
-    public async Task InformationEndpointReturnsSharedApplicationMetadata()
+    public async Task InformationEndpointRequiresAnAdministrator()
     {
-        var actual = await client.GetFromJsonAsync<ApplicationInfo>("/api/system/info");
-        Assert.Equal(ApplicationInfo.Current, actual);
+        var response = await client.GetAsync("/api/system/info");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Null(response.Headers.Location);
         Assert.Equal("Healthy", await client.GetStringAsync("/health"));
     }
 
@@ -89,7 +92,6 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     }
 
     [Theory]
-    [InlineData("/Account/Login")]
     [InlineData("/Account/Register")]
     [InlineData("/Account/ForgotPassword")]
     public async Task PreviewDoesNotAcceptAccountSubmissions(string path)
@@ -102,11 +104,13 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     [InlineData("/admin")]
     [InlineData("/admin/")]
     [InlineData("/admin/users/alex")]
-    public async Task BuiltAdminSupportsDeepLinks(string path)
+    [InlineData("/admin/index.html")]
+    [InlineData("/admin/assets/example.js")]
+    public async Task AdminRequiresSignInIncludingStaticFiles(string path)
     {
-        var html = await client.GetStringAsync(path);
-        Assert.Contains("/admin/assets/", html);
-        Assert.Contains("id=\"root\"", html);
+        var response = await client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith("https://localhost/Account/Login?ReturnUrl=", response.Headers.Location!.OriginalString);
     }
 
     [Fact]
@@ -122,6 +126,27 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     {
         using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
         var error = Assert.Throws<InvalidOperationException>(() => production.CreateClient());
-        Assert.Contains("development-only UI preview", error.Message);
+        Assert.Contains("development-only", error.Message);
+    }
+
+    [Fact]
+    public async Task PlainHttpRedirectsToHttpsEvenWithAnHttpOnlyBackendListener()
+    {
+        using var http = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var response = await http.GetAsync("/Account/Login");
+        Assert.Equal(HttpStatusCode.TemporaryRedirect, response.StatusCode);
+        Assert.Equal("https://localhost:7443/Account/Login", response.Headers.Location!.OriginalString);
+        Assert.Equal(HttpStatusCode.OK, (await http.GetAsync("/health")).StatusCode);
+    }
+
+    [Fact]
+    public async Task LoginRejectsMissingAntiforgeryTokenBeforeCheckingCredentials()
+    {
+        var response = await client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = "sample@example.test",
+            ["Password"] = "not-used"
+        }));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

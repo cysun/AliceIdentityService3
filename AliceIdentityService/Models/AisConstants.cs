@@ -3,6 +3,7 @@ namespace AliceIdentityService.Models;
 public static class AisConstants
 {
     public const string AdminClaim = "ais_admin";
+    public const string AdminPolicy = "Administrator";
 
     public static IReadOnlyDictionary<string, string[]> StandardScopes { get; } = new Dictionary<string, string[]>
     {

@@ -1,0 +1,9 @@
+@model LoginInputModel
+<form asp-action="Login" method="post" class="fields">
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div asp-validation-summary="All" class="validation-errors" role="alert"></div>
+    <label class="field" for="email">Email address<input asp-for="Email" id="email" type="email" autocomplete="username" placeholder="you@example.com" required maxlength="256" /></label>
+    <div class="field"><label for="password">Password</label><span class="password-field"><input id="password" name="Password" type="password" autocomplete="current-password" placeholder="Enter your password" required maxlength="4096" /><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false">Show</button></span></div>
+    <div class="form-options"><label class="checkbox"><input asp-for="RememberMe" />Remember me</label><a asp-action="ForgotPassword">Forgot password?</a></div>
+    <button type="submit" class="primary-button">Sign in <span aria-hidden="true">→</span></button>
+</form>
