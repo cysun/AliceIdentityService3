@@ -9,7 +9,8 @@ namespace AliceIdentityService.Controllers;
 
 [Route("Account")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class AccountController(SignInManager<User> signIn, OidcLoginContext oidcContext, RegistrationService registration) : Controller
+public sealed class AccountController(SignInManager<User> signIn, OidcLoginContext oidcContext,
+    RegistrationService registration, PasswordRecoveryService recovery) : Controller
 {
     [HttpGet("Login")]
     public async Task<IActionResult> Login(string? context, string? returnUrl)
@@ -53,8 +54,65 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
         return View("Account", new AccountPageModel("Login", validated?.ApplicationName, input.OidcContext) { Login = input });
     }
 
-    [Authorize, HttpGet("")]
-    public IActionResult Home() => View("Account", new AccountPageModel("Home"));
+    [Authorize, HttpGet(""), HttpGet("Profile")]
+    public async Task<IActionResult> Home(bool saved = false)
+    {
+        var user = await signIn.UserManager.GetUserAsync(User);
+        if (user is null) return Challenge();
+        return View("Account", new AccountPageModel("Home")
+        {
+            Profile = new() { FirstName = user.FirstName, LastName = user.LastName, ScreenName = user.ScreenName, Email = user.Email },
+            ProfileSaved = saved
+        });
+    }
+
+    [Authorize, HttpPost("Profile"), RequestSizeLimit(16 * 1024)]
+    public async Task<IActionResult> SaveProfile(ProfileInputModel input)
+    {
+        var user = await signIn.UserManager.GetUserAsync(User);
+        if (user is null) return Challenge();
+        input.Email = user.Email;
+        if (ModelState.IsValid)
+        {
+            // Bind only the three editable names. The signed-in subject determines the account.
+            user.FirstName = input.FirstName.Trim();
+            user.LastName = input.LastName.Trim();
+            user.ScreenName = input.ScreenName.Trim();
+            var result = await signIn.UserManager.UpdateAsync(user);
+            if (result.Succeeded) return RedirectToAction(nameof(Home), new { saved = true });
+            ModelState.AddModelError(string.Empty, "Unable to save your profile. Reload the page and try again.");
+        }
+        // Claims are refreshed on the next request without renewing the fixed cookie expiry.
+        return View("Account", new AccountPageModel("Home") { Profile = input });
+    }
+
+    [Authorize, HttpGet("ChangePassword")]
+    public IActionResult ChangePassword() => View("Account", new AccountPageModel("ChangePassword"));
+
+    [Authorize, HttpPost("ChangePassword"), RequestSizeLimit(32 * 1024)]
+    public async Task<IActionResult> ChangePassword(ChangePasswordInputModel input)
+    {
+        if (ModelState.IsValid)
+        {
+            var user = await signIn.UserManager.GetUserAsync(User);
+            if (user is null) return Challenge();
+            var check = await signIn.CheckPasswordSignInAsync(user, input.CurrentPassword, lockoutOnFailure: true);
+            if (check.Succeeded)
+            {
+                var result = await signIn.UserManager.ChangePasswordAsync(user, input.CurrentPassword, input.Password);
+                if (result.Succeeded)
+                {
+                    await signIn.SignOutAsync();
+                    return View("Account", new AccountPageModel("PasswordChanged"));
+                }
+                foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
+            }
+            else ModelState.AddModelError(string.Empty, "Unable to change your password. Check your current password or try again later.");
+        }
+        input.CurrentPassword = input.Password = input.ConfirmPassword = string.Empty;
+        ClearPasswords(nameof(input.CurrentPassword), nameof(input.Password), nameof(input.ConfirmPassword));
+        return View("Account", new AccountPageModel("ChangePassword") { ChangePassword = input });
+    }
 
     // GET only displays a confirmation. Signing out always requires an antiforgery-protected POST.
     [Authorize, HttpGet("Logout")]
@@ -174,13 +232,85 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
     }
 
     [HttpGet("ForgotPassword")]
-    public Task<IActionResult> ForgotPassword(string? context) => PreviewPage("ForgotPassword", context);
-
-    private async Task<IActionResult> PreviewPage(string page, string? context)
+    public async Task<IActionResult> ForgotPassword(string? context)
     {
         var validated = context is not null ? await oidcContext.ReadAsync(context) : null;
         if (context is not null && validated is null) return InvalidContext();
-        return View("Account", new AccountPageModel(page, validated?.ApplicationName, context));
+        return View("Account", new AccountPageModel("ForgotPassword", validated?.ApplicationName, context)
+        {
+            ForgotPassword = new() { OidcContext = context }
+        });
+    }
+
+    [HttpPost("ForgotPassword"), RequestSizeLimit(32 * 1024), EnableRateLimiting("account-email")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordInputModel input)
+    {
+        var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
+        if (input.OidcContext is not null && validated is null) return InvalidContext();
+        if (!ModelState.IsValid)
+            return View("Account", new AccountPageModel("ForgotPassword", validated?.ApplicationName, input.OidcContext) { ForgotPassword = input });
+        try { await recovery.RequestAsync(input.Email, input.OidcContext, HttpContext.RequestAborted); }
+        catch (MailDeliveryException)
+        {
+            // The sender logs a sanitized failure. A different response during an outage
+            // would reveal whether the address belongs to a confirmed account.
+        }
+        return View("Account", new AccountPageModel("ResetEmailSent", validated?.ApplicationName, input.OidcContext));
+    }
+
+    [HttpGet("ResetPassword")]
+    public async Task<IActionResult> ResetPassword([FromQuery] ResetPasswordLinkModel link)
+    {
+        if (!ModelState.IsValid || await recovery.FindResetUserAsync(link) is null) return ResetInvalid();
+        return await ResetPage(new() { UserId = link.UserId, Code = link.Code, OidcContext = link.OidcContext });
+    }
+
+    [HttpPost("ResetPassword"), ActionName("ResetPassword"), RequestSizeLimit(48 * 1024)]
+    public async Task<IActionResult> ResetPasswordSubmit(ResetPasswordInputModel input)
+    {
+        // Validate the link independently of password errors before redisplaying it.
+        if (string.IsNullOrEmpty(input.UserId) || input.UserId.Length > 256 || string.IsNullOrEmpty(input.Code) ||
+            input.Code.Length > 4000 || input.OidcContext?.Length > 20000 || await recovery.FindResetUserAsync(input) is null)
+            return ResetInvalid();
+        if (ModelState.IsValid)
+        {
+            var result = await recovery.ResetAsync(input);
+            if (result.Succeeded)
+            {
+                // No automatic sign-in; clear this browser too, even when following a link while signed in.
+                await signIn.SignOutAsync();
+                var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
+                return View("Account", new AccountPageModel("PasswordReset", validated?.ApplicationName, validated is null ? null : input.OidcContext)
+                {
+                    ContinuationExpired = input.OidcContext is not null && validated is null
+                });
+            }
+            if (result.Errors.Any(error => error.Code is "InvalidToken" or "ConcurrencyFailure")) return ResetInvalid();
+            foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
+        }
+        input.Password = input.ConfirmPassword = string.Empty;
+        ClearPasswords(nameof(input.Password), nameof(input.ConfirmPassword));
+        return await ResetPage(input);
+    }
+
+    private async Task<IActionResult> ResetPage(ResetPasswordInputModel input)
+    {
+        var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
+        return View("Account", new AccountPageModel("ResetPassword", validated?.ApplicationName, validated is null ? null : input.OidcContext)
+        {
+            ResetPassword = input
+        });
+    }
+
+    private IActionResult ResetInvalid()
+    {
+        Response.StatusCode = StatusCodes.Status400BadRequest;
+        return View("Account", new AccountPageModel("ResetInvalid"));
+    }
+
+    private void ClearPasswords(params string[] names)
+    {
+        foreach (var name in names) ModelState.SetModelValue(name, string.Empty, string.Empty);
     }
 
     private IActionResult InvalidContext()

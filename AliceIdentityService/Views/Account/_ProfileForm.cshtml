@@ -1,0 +1,8 @@
+@model ProfileInputModel
+<form asp-controller="Account" asp-action="SaveProfile" method="post" class="fields">
+    <div asp-validation-summary="All" class="validation-errors" role="alert"></div>
+    <div class="two-fields"><label class="field" for="first-name">First name<input asp-for="FirstName" id="first-name" autocomplete="given-name" required maxlength="255" /></label><label class="field" for="last-name">Last name<input asp-for="LastName" id="last-name" autocomplete="family-name" required maxlength="255" /></label></div>
+    <label class="field" for="screen-name">Screen name<input asp-for="ScreenName" id="screen-name" autocomplete="nickname" required maxlength="255" /></label>
+    <div class="field">Email address<div class="profile-email"><span>@Model.Email</span><span class="confirmed-badge">Confirmed</span></div></div>
+    <button type="submit" class="primary-button">Save changes</button>
+</form>

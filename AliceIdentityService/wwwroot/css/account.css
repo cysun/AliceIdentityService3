@@ -329,6 +329,29 @@ input::placeholder {
 .signed-in-name {
   overflow-wrap: anywhere;
 }
+.profile-email {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ais-muted);
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.confirmed-badge {
+  color: var(--ais-success);
+  background: var(--ais-tint);
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 11px;
+}
+.account-notice {
+  color: var(--ais-link);
+  background: var(--ais-tint);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+}
 @media (max-width: 850px) {
   .account-main {
     gap: 28px;

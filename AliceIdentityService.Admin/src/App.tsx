@@ -127,7 +127,7 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 5 preview</strong> · Administrator access required. Data and identity below
+            <strong>Step 6 preview</strong> · Administrator access required. Data and identity below
             are samples.
           </span>
           <div>

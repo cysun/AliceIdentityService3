@@ -90,10 +90,10 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
 
     [Theory]
     [InlineData("/Account/ForgotPassword")]
-    public async Task PreviewDoesNotAcceptAccountSubmissions(string path)
+    public async Task RecoveryRequiresAntiforgeryBeforeAcceptingSubmissions(string path)
     {
         var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string> { ["email"] = "sample@example.com" }));
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Theory]

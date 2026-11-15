@@ -6,7 +6,7 @@ namespace AliceIdentityService.Services;
 
 // Bounded, process-local recipient throttling; complements the HTTP IP limit.
 // Entries survive failures so a broken transport cannot be hammered by resend.
-public sealed class ConfirmationEmailLimit(TimeProvider clock) : IDisposable
+public sealed class AccountEmailLimit(TimeProvider clock) : IDisposable
 {
     private sealed record Window(DateTimeOffset Started, DateTimeOffset Last, int Count);
     private readonly MemoryCache cache = new(new MemoryCacheOptions { SizeLimit = 10000 });

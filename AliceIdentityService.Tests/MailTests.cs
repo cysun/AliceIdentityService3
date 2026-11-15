@@ -82,12 +82,14 @@ public sealed class MailTests
             .SendConfirmationAsync("user@example.test", "User", "/Account/ConfirmEmail?code=test", default);
         var messages = MessagePackSerializer.Deserialize<List<byte[]>>(publisher.Body!);
         using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(messages)));
-        Assert.Equal("AIS - Confirm your email", message.Subject);
+        Assert.Equal("AIS - Email Confirmation", message.Subject);
         Assert.Contains("/Account/ConfirmEmail?code=test", message.HtmlBody);
     }
 
-    [Fact]
-    public async Task ConfirmationMessageUsesTheAliceMailServiceWireFormatAndConfiguredHttpsOrigin()
+    [Theory]
+    [InlineData(false, "AIS - Email Confirmation", "24 hours")]
+    [InlineData(true, "AIS - Reset your password", "1 hour")]
+    public async Task AccountMessagesUseTheAliceMailServiceWireFormatAndConfiguredHttpsOrigin(bool reset, string subject, string expiry)
     {
         var publisher = new CapturedMailPublisher();
         var sender = new AccountEmailSender(Options.Create(new EmailSettings
@@ -95,18 +97,22 @@ public sealed class MailTests
             AppUrl = "https://identity.example.test/",
             SenderEmail = "noreply@example.test"
         }), publisher, Templates(), NullLogger<AccountEmailSender>.Instance);
-        await sender.SendConfirmationAsync("user@example.test", "User <test>", "/Account/ConfirmEmail?code=secret&userId=123", default);
+        var path = (reset ? "/Account/ResetPassword" : "/Account/ConfirmEmail") + "?code=secret&userId=123";
+        if (reset) await sender.SendPasswordResetAsync("user@example.test", "User <test>", path, default);
+        else await sender.SendConfirmationAsync("user@example.test", "User <test>", path, default);
         var batch = MessagePackSerializer.Deserialize<List<byte[]>>(publisher.Body!);
         using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(batch)));
         Assert.Equal("user@example.test", message.To.Mailboxes.Single().Address);
         Assert.Equal("noreply@example.test", message.From.Mailboxes.Single().Address);
-        Assert.Equal("AIS - Confirm your email", message.Subject);
-        Assert.Contains("https://identity.example.test/Account/ConfirmEmail?code=secret&userId=123", message.TextBody);
+        Assert.Equal(subject, message.Subject);
+        Assert.Contains("https://identity.example.test" + path, message.TextBody);
         Assert.Contains("code=secret&amp;userId=123", message.HtmlBody);
-        Assert.Contains("24 hours", message.TextBody);
+        Assert.Contains(expiry, message.TextBody);
+        Assert.DoesNotContain("{{link}}", message.TextBody + message.HtmlBody);
         Assert.False(string.IsNullOrEmpty(message.MessageId));
         publisher.Fail = true;
         await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendConfirmationAsync("user@example.test", "User", "/Account/ConfirmEmail", default));
+        await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendPasswordResetAsync("user@example.test", "User", "/Account/ResetPassword", default));
     }
 
     [Theory]
@@ -150,6 +156,14 @@ public sealed class MailTests
             using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(messages)));
             Assert.Contains("/Account/ConfirmEmail?code=test", message.TextBody);
             Assert.Equal("user@example.test", message.To.Mailboxes.Single().Address);
+            await sender.SendPasswordResetAsync("user@example.test", "Test", "/Account/ResetPassword?code=test", default);
+            var resetDelivery = await channel.BasicGetAsync(queue, autoAck: true);
+            Assert.NotNull(resetDelivery);
+            Assert.True(resetDelivery.BasicProperties.Persistent);
+            using var resetMessage = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(
+                MessagePackSerializer.Deserialize<List<byte[]>>(resetDelivery.Body))));
+            Assert.Equal("AIS - Reset your password", resetMessage.Subject);
+            Assert.Contains("/Account/ResetPassword?code=test", resetMessage.TextBody);
             Assert.Null(await channel.BasicGetAsync(queue, autoAck: true));
         }
         finally { await channel.QueueDeleteAsync(queue, ifUnused: false, ifEmpty: false); }

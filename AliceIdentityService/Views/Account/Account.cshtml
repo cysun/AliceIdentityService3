@@ -16,7 +16,7 @@
 </head>
 <body>
     <div class="preview-banner">
-        <span><strong>AIS3 · Step 5</strong> Registration and email confirmation are connected. Recovery and admin data remain previews.</span>
+        <span><strong>AIS3 · Step 6</strong> Account sign-in, registration, recovery, and profile editing are connected. Admin data remains a preview.</span>
         <nav aria-label="Preview navigation">
             <a href="/Account/Login">Direct login</a>
             <a href="/admin/">Admin preview →</a>
@@ -60,11 +60,14 @@
                             "ConfirmationInvalid" => "This link is invalid, expired, or already used. Sign in or request a new confirmation email.",
                             "MailUnavailable" => "We could not queue the confirmation email. Your account remains unconfirmed. Wait a minute, then request another email.",
                             "ForgotPassword" => "Enter your email to request a password reset link.",
-                            "Home" => "Your AIS account session is active.",
+                            "ResetPassword" => "Create a new password for your AIS account.",
+                            "ChangePassword" => "Enter your current password and choose a new one. You will need to sign in again.",
+                            "Home" => "Manage how your name appears in connected apps.",
                             "Logout" => "This will sign you out of AIS on this browser.",
                             "OidcLogout" => "Sign out of AIS on this browser?",
                             "InvalidRequest" => "This sign-in request is invalid or expired. Return to your application and start again.",
                             "AccessDenied" => "Administrator access is required to open this page.",
+                            "ResetEmailSent" or "ResetInvalid" or "PasswordReset" or "PasswordChanged" => "",
                             _ => "Sign in to your AIS account."
                         })</p>
                     }
@@ -114,7 +117,9 @@
                 else if (Model.Page == "Home")
                 {
                     <div class="fields">
-                        <p class="signed-in-name">@User.Identity?.Name</p>
+                        @if (Model.ProfileSaved) { <p class="account-notice" role="status">Your profile has been saved.</p> }
+                        <partial name="~/Views/Account/_ProfileForm.cshtml" model="Model.Profile" />
+                        <a asp-action="ChangePassword">Change password</a>
                         @if (User.HasClaim(claim => claim.Type == AisConstants.AdminClaim))
                         {
                             <a class="primary-button" href="/admin/">Open administration <span aria-hidden="true">→</span></a>
@@ -154,13 +159,37 @@
                 }
                 else if (Model.Page == "ForgotPassword")
                 {
+                    <partial name="~/Views/Account/_ForgotPasswordForm.cshtml" model="Model.ForgotPassword" />
+                }
+                else if (Model.Page == "ResetPassword")
+                {
+                    <partial name="~/Views/Account/_ResetPasswordForm.cshtml" model="Model.ResetPassword" />
+                }
+                else if (Model.Page == "ChangePassword")
+                {
+                    <partial name="~/Views/Account/_ChangePasswordForm.cshtml" model="Model.ChangePassword" />
+                }
+                else if (Model.Page is "ResetEmailSent" or "ResetInvalid")
+                {
                     <div class="fields">
-                        <label class="field" for="email">Email address<input id="email" type="email" autocomplete="off" placeholder="you@example.com" /></label>
-                        <button type="button" class="primary-button" data-preview-action>Send reset link <span aria-hidden="true">→</span></button>
-                        <p class="preview-result" role="status" hidden>This is a visual preview. No account request was sent.</p>
+                        <p>@(Model.Page == "ResetInvalid" ? "This link is invalid, expired, or already used. Request a new password reset link." : "If this address belongs to an eligible confirmed account, you will receive a password reset link. Check your spam folder too.")</p>
+                        <p>Reset links expire after one hour. If the email does not arrive, wait a minute before trying again.</p>
+                        <a asp-action="ForgotPassword" asp-route-context="@Model.OidcContext">Request another reset link</a>
+                        <a asp-action="Login" asp-route-context="@Model.OidcContext">Back to sign in</a>
                     </div>
                 }
-                @if (Model.Page is "Login" or "Register" or "ForgotPassword" or "ResendConfirmation")
+                else if (Model.Page is "PasswordReset" or "PasswordChanged")
+                {
+                    <div class="fields">
+                        <p>Your password has been updated. Sign in again with your new password. Other AIS browser sessions will also need to sign in again.</p>
+                        @if (Model.ContinuationExpired)
+                        {
+                            <p>Your application sign-in request has expired. Return to your application and start sign-in again.</p>
+                        }
+                        <a class="primary-button" asp-action="Login" asp-route-context="@Model.OidcContext">Continue to sign in <span aria-hidden="true">→</span></a>
+                    </div>
+                }
+                @if (Model.Page is "Login" or "Register" or "ForgotPassword" or "ResendConfirmation" or "ResetPassword")
                 {
                     <div class="account-panel-footer">
                         @if (Model.Page == "Login")

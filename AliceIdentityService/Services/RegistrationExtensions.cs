@@ -26,11 +26,14 @@ public static class RegistrationExtensions
     public static IServiceCollection AddAisRegistration(this IServiceCollection services)
     {
         services.AddDataProtection();
-        new IdentityBuilder(typeof(User), services).AddTokenProvider<EmailConfirmationTokenProvider>("AIS3.EmailConfirmation");
+        new IdentityBuilder(typeof(User), services)
+            .AddTokenProvider<EmailConfirmationTokenProvider>("AIS3.EmailConfirmation")
+            .AddTokenProvider<PasswordResetTokenProvider>("AIS3.PasswordReset");
         services.Configure<IdentityOptions>(options =>
         {
             options.User.RequireUniqueEmail = true;
             options.Tokens.EmailConfirmationTokenProvider = "AIS3.EmailConfirmation";
+            options.Tokens.PasswordResetTokenProvider = "AIS3.PasswordReset";
         });
         services.AddOptions<EmailSettings>().BindConfiguration("Email")
             .Validate(options => Uri.TryCreate(options.AppUrl, UriKind.Absolute, out var url) &&
@@ -42,12 +45,13 @@ public static class RegistrationExtensions
             .Validate(options => !string.IsNullOrWhiteSpace(options.HostName) && !string.IsNullOrWhiteSpace(options.QueueName) &&
                 options.Port is > 0 and <= 65535 && options.PublishTimeoutSeconds is >= 1 and <= 60, "Invalid RabbitMQ host, queue, port, or timeout.");
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<ConfirmationEmailLimit>();
+        services.AddSingleton<AccountEmailLimit>();
         services.AddSingleton<IMailPublisher, RabbitMailPublisher>();
         services.AddSingleton(provider => new EmailTemplates(Path.Combine(
             provider.GetRequiredService<IHostEnvironment>().ContentRootPath, "EmailTemplates")));
         services.AddScoped<IAccountEmailSender, AccountEmailSender>();
         services.AddScoped<RegistrationService>();
+        services.AddScoped<PasswordRecoveryService>();
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

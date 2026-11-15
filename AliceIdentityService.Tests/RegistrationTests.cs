@@ -15,7 +15,14 @@ namespace AliceIdentityService.Tests;
 internal sealed class CapturedAccountMail : IAccountEmailSender
 {
     public List<(string Email, string Name, string Path)> Messages { get; } = [];
+    public List<(string Email, string Name, string Path)> Resets { get; } = [];
     public bool Fail { get; set; }
+    public Task SendPasswordResetAsync(string email, string name, string resetPath, CancellationToken cancellationToken)
+    {
+        if (Fail) throw new MailDeliveryException();
+        lock (Resets) Resets.Add((email, name, resetPath));
+        return Task.CompletedTask;
+    }
     public Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken)
     {
         if (Fail) throw new MailDeliveryException();
@@ -276,7 +283,7 @@ public sealed class RegistrationTests
     public void RecipientLimitSharesCaseNormalizedKeysAndEnforcesCooldownAndHourlyCap()
     {
         var clock = new TestClock();
-        using var limit = new ConfirmationEmailLimit(clock);
+        using var limit = new AccountEmailLimit(clock);
         for (var i = 0; i < 5; i++)
         {
             Assert.True(limit.TryAcquire("USER@EXAMPLE.TEST"));

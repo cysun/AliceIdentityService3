@@ -65,3 +65,7 @@ For manual Step 4 testing, the explicit Development-only `dotnet run --project A
 ## Step 5 registration
 
 Registration, confirmation, and resend use the existing Identity tables and require no schema/SQL upgrade. New users remain unconfirmed until a valid confirmation POST; confirmation and security-stamp rotation share one database transaction. Email publication follows account creation, so a failed publication leaves an unconfirmed account eligible for resend. There is no outbox table or automatic data cleanup in this step. Both versioned SQL scripts remain unchanged, and no migration source is needed.
+
+## Step 6 recovery and profile
+
+Password reset/change and profile name editing use the existing Identity user columns. Identity saves the password hash and security stamp in the same concurrency-checked update; a successful password operation invalidates older reset links, cookies, authorization codes, and refresh tokens. Profile edits retain the password, stamp, email, and claims and only change the current account's three name fields. There is no migration, schema regeneration, or SQL upgrade for Step 6. Both versioned scripts are unchanged.

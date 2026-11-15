@@ -266,11 +266,12 @@ public sealed class OidcTests
         Assert.DoesNotContain("value=\"wrong\"", failedHtml);
         foreach (var page in new[] { "Register", "ForgotPassword" })
         {
-            var preview = await client.Browser.GetStringAsync("/Account/" + page + "?context=" + Uri.EscapeDataString(context));
-            Assert.Contains("account-shell oidc", preview);
-            Assert.Contains("/Account/Login?context=", preview);
-            if (page == "Register") Assert.Contains("<form", preview);
-            else Assert.DoesNotContain("<form", preview);
+            var pageHtml = await client.Browser.GetStringAsync("/Account/" + page + "?context=" + Uri.EscapeDataString(context));
+            Assert.Contains("account-shell oidc", pageHtml);
+            Assert.Contains("/Account/Login?context=", pageHtml);
+            Assert.Contains("<form", pageHtml);
+            Assert.Equal(context, OidcTestClient.Field(pageHtml, "OidcContext"));
+            Assert.NotEmpty(OidcTestClient.Field(pageHtml, "__RequestVerificationToken"));
         }
         Assert.Equal(HttpStatusCode.BadRequest, (await client.SubmitLogin(failedHtml, contextOverride: context + "tampered")).StatusCode);
         var protector = client.Factory.Services.GetRequiredService<IDataProtectionProvider>()

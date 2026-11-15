@@ -1,6 +1,6 @@
 # Step 5 review
 
-Steps 1–4 are approved and committed. Step 5 is **uncommitted** for manual review. Step 6 has not started.
+Step 5 was reviewed and committed as `6f1db91`. This checklist records its implementation and verification. Current work and the next review gate are in the [Step 6 review](step-6.md).
 
 ## Implemented behavior
 

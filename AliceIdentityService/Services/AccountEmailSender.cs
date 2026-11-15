@@ -15,6 +15,7 @@ public sealed class EmailSettings
 public interface IAccountEmailSender
 {
     Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken);
+    Task SendPasswordResetAsync(string email, string name, string resetPath, CancellationToken cancellationToken);
 }
 
 public interface IMailPublisher
@@ -24,20 +25,26 @@ public interface IMailPublisher
 
 public sealed class MailDeliveryException : Exception
 {
-    public MailDeliveryException() : base("The confirmation email could not be queued.") { }
+    public MailDeliveryException() : base("The account email could not be queued.") { }
 }
 
 public sealed class AccountEmailSender(IOptions<EmailSettings> settings, IMailPublisher publisher, EmailTemplates templates,
     ILogger<AccountEmailSender> logger) : IAccountEmailSender
 {
-    public async Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken)
+    public Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken) =>
+        SendAsync("EmailVerification", email, name, confirmationPath, cancellationToken);
+
+    public Task SendPasswordResetAsync(string email, string name, string resetPath, CancellationToken cancellationToken) =>
+        SendAsync("ResetPassword", email, name, resetPath, cancellationToken);
+
+    private async Task SendAsync(string template, string email, string name, string path, CancellationToken cancellationToken)
     {
         try
         {
             var options = settings.Value;
             // A configured public URL, never the request Host or a client-supplied return URL.
-            var link = new Uri(new Uri(options.AppUrl), confirmationPath).AbsoluteUri;
-            var content = await templates.RenderAsync("EmailVerification", link, cancellationToken);
+            var link = new Uri(new Uri(options.AppUrl), path).AbsoluteUri;
+            var content = await templates.RenderAsync(template, link, cancellationToken);
             using var message = new MimeMessage();
             message.From.Add(new MailboxAddress(options.SenderName, options.SenderEmail));
             message.To.Add(new MailboxAddress(name, email));
@@ -58,7 +65,7 @@ public sealed class AccountEmailSender(IOptions<EmailSettings> settings, IMailPu
         catch (Exception error)
         {
             // Exception messages, recipients, and links can contain secrets. Log the type only.
-            logger.LogWarning("Confirmation email was not queued. Failure type: {FailureType}", error.GetType().Name);
+            logger.LogWarning("Account email was not queued. Failure type: {FailureType}", error.GetType().Name);
             throw new MailDeliveryException();
         }
     }

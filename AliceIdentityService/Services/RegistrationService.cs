@@ -9,7 +9,7 @@ using Npgsql;
 namespace AliceIdentityService.Services;
 
 public sealed class RegistrationService(UserManager<User> users, AisDbContext database,
-    IAccountEmailSender mail, ConfirmationEmailLimit limit)
+    IAccountEmailSender mail, AccountEmailLimit limit)
 {
     public async Task<IdentityResult> RegisterAsync(RegistrationInputModel input, CancellationToken cancellationToken)
     {

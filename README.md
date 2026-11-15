@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–4 are approved and committed. Step 5 is implemented and uncommitted for review. Step 6 has not started.** Direct/OIDC sign-in, registration, email confirmation, and basic mail delivery integration are connected. The approved admin UI still uses fictional sample data, behind administrator authorization.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–5 are approved and committed. Step 6 is implemented and uncommitted for review. Step 7 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The approved admin UI still uses fictional sample data, behind administrator authorization.
 
 ## Projects
 
@@ -39,9 +39,9 @@ dotnet dev-certs https --trust
 npm run dev --prefix AliceIdentityService.Admin
 ```
 
-Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` shows the signed-in session and a sign-out button. Vite checks access with the same backend policy before serving the admin preview.
+Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` (also `/Account/Profile`) shows your profile, editable names, password-change link, and sign-out button. Vite checks access with the same backend policy before serving the admin preview.
 
-Registration at `/Account/Register` is functional. Recovery at `/Account/ForgotPassword` and admin data at `/admin/users` and `/admin/components` remain previews. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
+Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. Admin data at `/admin/users` and `/admin/components` remains a preview. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
 
 ## Account sessions
 
@@ -59,7 +59,7 @@ Discovery at `/.well-known/openid-configuration` advertises `/connect/authorize`
 
 Default token lifetimes are five minutes for authorization codes, one hour for access/ID tokens, and fourteen days for refresh tokens. Refresh tokens rotate on every successful use with no reuse grace period and retain their original expiry. Reusing a redeemed refresh token revokes its associated authorization. Code exchange and renewal check current account/security-stamp state and rebuild claims; changed client scope permissions also apply. Existing signed access JWTs can remain valid until expiry at independently validating APIs. Signing out clears the browser session, not outstanding tokens or other clients' sessions.
 
-The compact Razor login uses the registered client name and a protected ten-minute continuation, preserving it through validation errors and preview links. Invalid or expired context requires restarting sign-in from the client. Logout requires confirmation and an antiforgery-protected POST before returning to a registered logout URL. Browser clients can call token/userinfo endpoints from registered redirect origins without CORS cookie credentials; account/admin endpoints do not allow cross-origin access.
+The compact Razor login uses the registered client name and a protected ten-minute continuation, preserving it through validation errors, registration, and password recovery. Invalid or expired context requires restarting sign-in from the client. Logout requires confirmation and an antiforgery-protected POST before returning to a registered logout URL. Browser clients can call token/userinfo endpoints from registered redirect origins without CORS cookie credentials; account/admin endpoints do not allow cross-origin access.
 
 `OpenIddict:Issuer` defaults to `https://localhost:7443/` and must match the public HTTPS origin used by clients, including through Vite. Development uses OpenIddict's persisted local signing/encryption certificates when both certificate paths are empty. To supply PKCS#12 certificates, configure **both** paths and their passwords in private configuration; relative paths resolve from the backend content root. These token certificates are separate from the HTTPS development certificate. Testing uses ephemeral keys. Production hosting/key management remains blocked until the hardening review.
 
@@ -69,15 +69,27 @@ Registration preserves the approved full or compact Razor layout. New accounts r
 
 Confirmation links expire after 24 hours. Opening a link displays a confirmation form; its antiforgery-protected POST confirms the email and rotates the security stamp atomically. Used/expired/invalid links are rejected. Confirmation does not sign the browser in: the user enters their password afterward. Valid OIDC context continues to the client; if the ten-minute sign-in context expires first, confirmation still works and the user is asked to restart sign-in from their application.
 
-`/Account/ResendConfirmation` requests another email. Normal registration/resend results use a generic message for new, existing, or unknown addresses. Registration and resend share a limit of ten POSTs per IP per fifteen minutes (HTTP 429); each normalized recipient is limited to one email attempt per minute and five per hour. These bounded, in-process recipient limits reset when the service restarts; distributed limits remain a deployment concern.
+`/Account/ResendConfirmation` requests another email. Normal registration/resend results use a generic message for new, existing, or unknown addresses. Registration, resend, and password recovery share a limit of ten POSTs per IP per fifteen minutes (HTTP 429); each normalized recipient is limited to one email attempt per minute and five per hour. These bounded, in-process recipient limits reset when the service restarts; distributed limits remain a deployment concern.
 
 Configure the `Email` and `RabbitMQ` sections from `appsettings.sample.json` in your private configuration. `Email:AppUrl` is the public HTTPS origin used in links (default `https://localhost:7443/`); it does not come from the request Host header. Set a sender address accepted by your mail provider. RabbitMQ host, credentials, and queue must match the AliceMailService consumer; AIS3 also supports explicit port, virtual host, and TLS settings for the publisher. SMTP configuration belongs to AliceMailService, not AIS3.
 
 AIS3 publishes a persistent, mandatory MessagePack list of MIME-message byte arrays to the durable queue and awaits broker confirmation. AliceMailService sends the email. A queue/configuration failure returns HTTP 503 with a retry page; a newly created account remains unconfirmed and can request another email after the cooldown. Broker acceptance is not proof of mailbox delivery, and a timeout can leave publication uncertain, so retry may produce a duplicate email. There is no automatic application retry or database outbox in Step 5. Application mail logs omit recipients, tokens, links, and raw exception text.
 
-Email content is kept in `AliceIdentityService/EmailTemplates`: `EmailVerification.Subject.txt`, `EmailVerification.Body.txt` (plain text), and `EmailVerification.Body.html`. The bodies use the literal `{{link}}` placeholder; HTML substitutions are escaped. Files are read when sending and copied into build/publish output, so copy edits do not require changing C# code. Missing or invalid templates follow the same retry/failure path as a mail-publication failure. Step 6 can add password-reset templates using the same renderer.
+Email content is kept in `AliceIdentityService/EmailTemplates`: `EmailVerification.Subject.txt`, `EmailVerification.Body.txt` (plain text), and `EmailVerification.Body.html`. The bodies use the literal `{{link}}` placeholder; HTML substitutions are escaped. Files are read when sending and copied into build/publish output, so copy edits do not require changing C# code. Missing or invalid templates follow the same retry/failure path as a mail-publication failure. Password-reset content uses the corresponding `ResetPassword.Subject.txt`, `.Body.txt`, and `.Body.html` files through the same renderer.
 
-The [Step 5 review instructions](docs/reviews/step-5.md) cover configuration, direct/OIDC registration, resend, and failure cases. Basic delivery integration moved forward from Step 12; Step 6 will reuse it for password recovery, and Step 12 retains the operations review.
+The [Step 5 review instructions](docs/reviews/step-5.md) cover configuration, direct/OIDC registration, resend, and failure cases. Basic delivery integration moved forward from Step 12; password recovery reuses it, and Step 12 retains the operations review.
+
+## Password recovery and profile
+
+`/Account/ForgotPassword` sends a reset link only for a unique, confirmed email address on an account with a password. Normal responses are identical for eligible, unknown, unconfirmed, ambiguous, throttled, and mail-failure cases. A failed publication is logged without recipient/link/token details; wait at least one minute before retrying. The same IP/recipient limits used by registration apply. Recovery does not change the password or sign anyone out until a reset is submitted successfully.
+
+Reset links expire after one hour and use a separate token purpose from email confirmation. GET displays the form; the antiforgery-protected POST validates the new password and changes the hash/security stamp together. A successful reset invalidates every outstanding reset link, existing AIS browser sessions, and earlier authorization codes/refresh tokens. Concurrent uses cannot both succeed. Password change at `/Account/ChangePassword` requires an authenticated session and the current password; wrong current passwords use the existing account lockout policy. Both successful operations require signing in again, including in the current browser. Neither clears lockout or disables two-factor protection. Already-issued access/ID JWTs and client-local sessions may remain usable until their own expiry; offline APIs cannot observe a changed Identity security stamp.
+
+A valid OIDC continuation survives recovery and resumes only after sign-in with the new password. An expired continuation does not prevent a password reset; restart sign-in from the application afterward.
+
+The authenticated profile at `/Account` or `/Account/Profile` edits first name, last name, and screen name (required, up to 255 characters each). The confirmed sign-in email is read-only, matching the approved mockup. Updates affect only the current user and cannot change email, passwords, stamps, claims, or permissions through submitted extra fields. Names are trimmed and HTML-escaped when displayed. Profile changes do not extend the fixed session expiry; subsequent userinfo responses and newly issued/refreshed ID tokens use the current names. No database or SQL changes are required.
+
+See the [Step 6 review instructions](docs/reviews/step-6.md) for manual recovery, password-change, profile, OIDC, and failure checks. Stop for manual review before Step 7.
 
 ## Configuration and database
 
@@ -105,7 +117,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 5 checklist](docs/reviews/step-5.md) gives commands for running the full suite and manual registration/mail checks. The separate review client has its own build/format commands there.
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 6 checklist](docs/reviews/step-6.md) gives commands for running the full suite and manual account checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
 
 To run the built UI using ASP.NET Core alone:
 
@@ -116,4 +128,4 @@ dotnet run --project AliceIdentityService
 
 Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its administrative data is still a sample. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 5 review checklist](docs/reviews/step-5.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 6.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 6 review checklist](docs/reviews/step-6.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 7.
