@@ -1,32 +1,68 @@
-import { Link } from 'react-router-dom';
-import { ArrowRight, Users, AppWindow, MailCheck, ShieldCheck } from 'lucide-react';
-import { UserTable } from '@/components/user-table';
-import { users, applications } from '@/preview-data';
+import { useCallback, useEffect, useState } from 'react';
+import { Users, AppWindow, MailCheck, ShieldCheck, RefreshCw } from 'lucide-react';
+import { StatusBadge } from '@/components/user-table';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type { AdminOverview } from '@/lib/admin-api';
+import { useAdminSession } from '@/lib/admin-context';
+import { initials } from '@/lib/person';
+
 export function Overview() {
-  const unconfirmed = users.filter((user) => user.status === 'Unconfirmed');
+  const { request } = useAdminSession();
+  const [data, setData] = useState<AdminOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [revision, setRevision] = useState(0);
+  const refresh = useCallback(() => {
+    setLoading(true);
+    setRevision((value) => value + 1);
+  }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    request<AdminOverview>('/api/admin/overview', controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setData(result);
+      })
+      .catch(() => {
+        /* The shared session boundary handles authorization and service failures. */
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [request, revision]);
+
+  if (!data) return <p role="status">Loading overview…</p>;
+  const { counts } = data;
   const stats = [
     {
       label: 'Total users',
-      value: users.length,
+      value: counts.totalUsers,
       note: 'Across your connected applications',
       icon: Users,
     },
     {
       label: 'Connected applications',
-      value: applications.length,
-      note: 'One identity, shared access',
+      value: counts.connectedApplications,
+      note: 'Registered sign-in clients',
       icon: AppWindow,
     },
     {
       label: 'Unconfirmed accounts',
-      value: unconfirmed.length,
+      value: counts.unconfirmedUsers,
       note: 'Awaiting email confirmation',
       icon: MailCheck,
     },
     {
       label: 'Administrators',
-      value: users.filter((u) => u.administrator).length,
-      note: 'Identity service administrators',
+      value: counts.administrators,
+      note: 'Accounts assigned administrator access',
       icon: ShieldCheck,
     },
   ];
@@ -37,16 +73,23 @@ export function Overview() {
           <h1>Overview</h1>
           <p>A clear view of your identity service.</p>
         </div>
-        <span className="sample-label">Fictional sample data</span>
+        <div className="overview-refresh">
+          <span>
+            Updated <time dateTime={data.asOf}>{new Date(data.asOf).toLocaleTimeString()}</time>
+          </span>
+          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <RefreshCw size={14} /> {loading ? 'Refreshing…' : 'Refresh'}
+          </Button>
+        </div>
       </div>
-      <div className="stats-grid">
+      <div className="stats-grid" aria-busy={loading}>
         {stats.map((stat) => (
-          <section className="stat-card" key={stat.label}>
+          <section className="stat-card" key={stat.label} aria-label={stat.label}>
             <div>
               <span>{stat.label}</span>
               <stat.icon size={18} />
             </div>
-            <strong>{stat.value}</strong>
+            <strong>{stat.value.toLocaleString()}</strong>
             <small>{stat.note}</small>
           </section>
         ))}
@@ -56,13 +99,50 @@ export function Overview() {
           <div className="panel-heading">
             <div>
               <h2>Recent registrations</h2>
-              <p>A few of the newest faces.</p>
+              <p>The five newest accounts, newest first.</p>
             </div>
-            <Link to="/users">
-              View all <ArrowRight size={14} />
-            </Link>
           </div>
-          <UserTable data={users.slice(0, 5)} />
+          <Table aria-label="Recent registrations">
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.recentRegistrations.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>
+                    <div className="person">
+                      <span className="avatar" aria-hidden="true">
+                        {initials(user.name)}
+                      </span>
+                      <span>
+                        <strong>{user.name}</strong>
+                        <small>{user.email}</small>
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={user.status} />
+                  </TableCell>
+                  <TableCell>
+                    <time dateTime={user.createdAt}>
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </time>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {data.recentRegistrations.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="empty-state">
+                    No accounts have registered yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </section>
         <section className="panel attention-panel">
           <div className="panel-heading">
@@ -76,11 +156,11 @@ export function Overview() {
               <MailCheck size={19} />
             </span>
             <div>
-              <strong>{unconfirmed.length} unconfirmed accounts</strong>
+              <strong>
+                {counts.unconfirmedUsers.toLocaleString()} unconfirmed{' '}
+                {counts.unconfirmedUsers === 1 ? 'account' : 'accounts'}
+              </strong>
               <p>These users haven't confirmed their email addresses yet.</p>
-              <Link to="/users?status=Unconfirmed">
-                Review accounts <ArrowRight size={14} />
-              </Link>
             </div>
           </div>
           <div className="attention-item">
@@ -88,11 +168,11 @@ export function Overview() {
               <ShieldCheck size={19} />
             </span>
             <div>
-              <strong>1 locked account</strong>
-              <p>A sample account has been temporarily locked.</p>
-              <Link to="/users?status=Locked">
-                View account <ArrowRight size={14} />
-              </Link>
+              <strong>
+                {counts.lockedUsers.toLocaleString()} locked{' '}
+                {counts.lockedUsers === 1 ? 'account' : 'accounts'}
+              </strong>
+              <p>Accounts whose enabled lockout has not expired.</p>
             </div>
           </div>
         </section>
@@ -101,23 +181,29 @@ export function Overview() {
         <div className="panel-heading">
           <div>
             <h2>Connected applications</h2>
-            <p>A consistent sign-in experience, wherever people work.</p>
+            <p>
+              Showing {data.applications.length} of {counts.connectedApplications.toLocaleString()}{' '}
+              registered applications.
+            </p>
           </div>
-          <Link to="/clients">
-            View clients <ArrowRight size={14} />
-          </Link>
         </div>
-        <div className="application-grid">
-          {applications.map((app) => (
-            <div className="application-card" key={app.name}>
-              <span className="avatar">{app.initials}</span>
-              <div>
-                <strong>{app.name}</strong>
-                <small>{app.description}</small>
+        {data.applications.length === 0 ? (
+          <p className="empty-state">No applications are registered yet.</p>
+        ) : (
+          <div className="application-grid">
+            {data.applications.map((app) => (
+              <div className="application-card" key={app.id}>
+                <span className="avatar" aria-hidden="true">
+                  {initials(app.name)}
+                </span>
+                <div>
+                  <strong>{app.name}</strong>
+                  <small>{app.clientId}</small>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </>
   );

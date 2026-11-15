@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom';
 import {
   AppWindow,
@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Overview } from '@/pages/overview';
+import { AdminAccess } from '@/lib/admin-session';
+import { useAdminSession } from '@/lib/admin-context';
+import { initials } from '@/lib/person';
 import { UserDetail, UsersPage } from '@/pages/users';
 const ComponentsPage = lazy(() =>
   import('@/pages/components').then((module) => ({ default: module.ComponentsPage })),
@@ -23,28 +26,6 @@ const navigation = [
   { path: '/scopes', label: 'Scopes', icon: ShieldCheck },
   { path: '/components', label: 'Components', icon: Blocks },
 ];
-function SystemInfo() {
-  const [info, setInfo] = useState('Connecting to local API…');
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/system/info', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('API unavailable');
-        const data: { name: string; version: string; implementationStep: number } =
-          await response.json();
-        setInfo(`AIS3 ${data.version} · Step ${data.implementationStep}`);
-      })
-      .catch((error) => {
-        if (error.name !== 'AbortError') setInfo('Local API unavailable');
-      });
-    return () => controller.abort();
-  }, []);
-  return (
-    <span className="system-info" role="status">
-      {info}
-    </span>
-  );
-}
 function PlannedPage({ title, step }: { title: string; step: number }) {
   return (
     <>
@@ -64,6 +45,12 @@ function PlannedPage({ title, step }: { title: string; step: number }) {
 }
 export function AdminShell() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { session } = useAdminSession();
+  const name =
+    session.user.screenName ||
+    `${session.user.firstName} ${session.user.lastName}`.trim() ||
+    session.user.email ||
+    'Administrator';
   return (
     <div className="admin-layout">
       <a className="skip-link" href="#main">
@@ -93,16 +80,20 @@ export function AdminShell() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="preview-identity">
-            <span className="avatar">AM</span>
+          <div className="admin-identity">
+            <span className="avatar" aria-hidden="true">
+              {initials(name)}
+            </span>
             <div>
-              <strong>Alex Morgan</strong>
-              <small>Sample administrator</small>
+              <strong>{name}</strong>
+              <small>Administrator</small>
+              <small>{session.user.email}</small>
             </div>
           </div>
           <a href="/Account">
-            Your account / sign out <ArrowUpRight size={14} />
+            Your account <ArrowUpRight size={14} />
           </a>
+          <a href="/Account/Logout">Sign out</a>
         </div>
       </aside>
       <div className="admin-body">
@@ -123,12 +114,14 @@ export function AdminShell() {
               <strong>Alice Identity Service</strong>
             </span>
           </div>
-          <SystemInfo />
+          <span className="system-info">
+            AIS3 {session.application.version} · Step {session.application.implementationStep}
+          </span>
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 6 preview</strong> · Administrator access required. Data and identity below
-            are samples.
+            <strong>Step 7 review</strong> · Overview and administrator identity are live. User
+            browsing remains a labeled preview.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>
@@ -170,7 +163,9 @@ export function AdminShell() {
 export default function App() {
   return (
     <BrowserRouter basename="/admin">
-      <AdminShell />
+      <AdminAccess>
+        <AdminShell />
+      </AdminAccess>
     </BrowserRouter>
   );
 }

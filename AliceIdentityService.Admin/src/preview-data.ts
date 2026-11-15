@@ -1,4 +1,4 @@
-// Fictional, deterministic review fixtures. Replace with API queries in Steps 7–8.
+// Fictional, deterministic review fixtures. User browsing stays a preview until Step 8. The live overview never uses these fixtures.
 export type PreviewUser = {
   id: string;
   name: string;
@@ -78,8 +78,4 @@ export const applications = [
   { name: 'Course Manager', initials: 'CM', description: 'Teaching and learning' },
   { name: 'Team Workspace', initials: 'TW', description: 'Work, connected' },
 ];
-export const initials = (name: string) =>
-  name
-    .split(' ')
-    .map((part) => part[0])
-    .join('');
+export { initials } from '@/lib/person';

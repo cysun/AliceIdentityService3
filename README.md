@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–5 are approved and committed. Step 6 is implemented and uncommitted for review. Step 7 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The approved admin UI still uses fictional sample data, behind administrator authorization.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–6 are approved and committed. Step 7 is implemented and uncommitted for review. Step 8 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search/details remain clearly labeled previews until Step 8.
 
 ## Projects
 
@@ -39,9 +39,9 @@ dotnet dev-certs https --trust
 npm run dev --prefix AliceIdentityService.Admin
 ```
 
-Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` (also `/Account/Profile`) shows your profile, editable names, password-change link, and sign-out button. Vite checks access with the same backend policy before serving the admin preview.
+Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` (also `/Account/Profile`) shows your profile, editable names, password-change link, and sign-out button. Vite checks access with the same backend policy before serving the admin UI.
 
-Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. Admin data at `/admin/users` and `/admin/components` remains a preview. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
+Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. The overview at `/admin/` is live; `/admin/users` and `/admin/components` remain previews. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
 
 ## Account sessions
 
@@ -49,7 +49,7 @@ Direct sign-in requires a confirmed email and respects persisted lockout state. 
 
 The `__Host-AIS3.Session` cookie is Secure, HttpOnly, SameSite=Lax, host-only, and scoped to `/`. Sessions have a fixed eight-hour expiry; **Remember me** persists the cookie for a fixed fourteen days. Requests never extend either expiry. Security stamps, confirmation, lockout, account existence, and current claims are checked on each authenticated request. Sign-out clears this browser's cookies; it does not revoke other browsers or OIDC tokens. Browser session restoration may retain nonpersistent cookies, so the server expiry remains authoritative.
 
-Login and logout POSTs require antiforgery tokens. GET `/Account/Logout` only asks for confirmation. Return URLs must be local. The admin namespace, including built static assets, requires the existing AIS2 `ais_admin` claim. `/api/system/info` requires the same policy and returns 401/403 for unauthorized requests. The React shell still displays sample identity/data; live session handling and administration belong to later steps.
+Login and logout POSTs require antiforgery tokens. GET `/Account/Logout` only asks for confirmation. Return URLs must be local. The admin namespace, including built static assets, requires the existing AIS2 `ais_admin` claim. `/api/system/info` requires the same policy and returns 401/403 for unauthorized requests. The React shell loads the current administrator from `/api/admin/session` before displaying protected routes. Sign-out uses the existing Razor confirmation and antiforgery-protected POST.
 
 Use HTTPS, including in development. HTTP redirects to port 7443 by default (override with `HTTPS_PORT`); only health endpoints remain accessible over HTTP for the local runner. Only the local loopback proxy's forwarded scheme is trusted. Data Protection uses ASP.NET Core's existing local key storage defaults; production keys and AIS2 session/token continuity remain later review decisions. AIS3 uses its own cookie name and does not import AIS2 browser sessions.
 
@@ -89,7 +89,19 @@ A valid OIDC continuation survives recovery and resumes only after sign-in with 
 
 The authenticated profile at `/Account` or `/Account/Profile` edits first name, last name, and screen name (required, up to 255 characters each). The confirmed sign-in email is read-only, matching the approved mockup. Updates affect only the current user and cannot change email, passwords, stamps, claims, or permissions through submitted extra fields. Names are trimmed and HTML-escaped when displayed. Profile changes do not extend the fixed session expiry; subsequent userinfo responses and newly issued/refreshed ID tokens use the current names. No database or SQL changes are required.
 
-See the [Step 6 review instructions](docs/reviews/step-6.md) for manual recovery, password-change, profile, OIDC, and failure checks. Stop for manual review before Step 7.
+See the [Step 6 review instructions](docs/reviews/step-6.md) for manual recovery, password-change, profile, OIDC, and failure checks.
+
+## Live administration shell
+
+`/admin/` displays the signed-in administrator's screen name and email, with links to the account page and sign-out confirmation. All admin HTML/assets and `/api/admin/session` / `/api/admin/overview` require the existing `ais_admin` policy. Anonymous API calls return 401 and non-admin calls return 403, without HTML redirects. Responses are not cached. The SPA uses the existing same-origin cookie and does not use localStorage or sessionStorage for credentials or data.
+
+The session response contains only the current user's ID, email and names, the original cookie expiry, server time, and application version. The SPA checks access before rendering its shell, on navigation, focus/page restore/visibility changes, and every minute while visible. A timer uses the server-provided remaining lifetime. These checks do not extend the fixed eight-hour/fourteen-day cookie expiry. A rejected session or API request clears protected content and offers sign-in or explains the missing permission. Network/server failures show a retry state; a changed signed-in user reloads the page data.
+
+The overview uses one consistent database snapshot for total users, registered applications, unconfirmed emails, distinct accounts assigned `ais_admin`, and enabled/unexpired lockouts. Administrator counts include assigned claims regardless of their value or the account's current lockout/confirmation state. Recent registrations show at most five accounts, ordered by creation time descending and ID ascending for ties. Application cards show at most six registered clients, ordered by display name (falling back to client ID/record ID). **Refresh** updates the snapshot; session polling does not refresh the overview. A registered client is not a measurement of online activity.
+
+Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows do not open the sample user detail pages. `/admin/users` remains the approved sample search/detail UI for Step 8; clients/scopes remain their planned pages, and component demonstrations remain local previews.
+
+See the [Step 7 review instructions](docs/reviews/step-7.md) for counts, session expiry/sign-out, access denial, failure recovery, and regression checks. No schema or configuration changes are needed. Stop for manual review before Step 8.
 
 ## Configuration and database
 
@@ -117,7 +129,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 6 checklist](docs/reviews/step-6.md) gives commands for running the full suite and manual account checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 7 checklist](docs/reviews/step-7.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
 
 To run the built UI using ASP.NET Core alone:
 
@@ -126,6 +138,6 @@ npm run build --prefix AliceIdentityService.Admin
 dotnet run --project AliceIdentityService
 ```
 
-Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its administrative data is still a sample. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
+Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity and overview are live, while user browsing remains a labeled sample. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 6 review checklist](docs/reviews/step-6.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 7.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 7 review checklist](docs/reviews/step-7.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 8.

@@ -34,6 +34,9 @@ public sealed class RabbitFactAttribute : FactAttribute
 public sealed class MailTests
 {
     private static EmailTemplates Templates() => new(Path.Combine(AppContext.BaseDirectory, "EmailTemplates"));
+    // Copy edits belong to the templates, not assertions about MIME transport.
+    private static string Subject(string template) => File.ReadAllText(Path.Combine(
+        AppContext.BaseDirectory, "EmailTemplates", template + ".Subject.txt")).Trim();
 
     [Fact]
     public async Task TemplatesUseEditedContentAndEncodeHtmlWhileRejectingBrokenActionTemplates()
@@ -82,14 +85,14 @@ public sealed class MailTests
             .SendConfirmationAsync("user@example.test", "User", "/Account/ConfirmEmail?code=test", default);
         var messages = MessagePackSerializer.Deserialize<List<byte[]>>(publisher.Body!);
         using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(messages)));
-        Assert.Equal("AIS - Email Confirmation", message.Subject);
+        Assert.Equal(Subject("EmailVerification"), message.Subject);
         Assert.Contains("/Account/ConfirmEmail?code=test", message.HtmlBody);
     }
 
     [Theory]
-    [InlineData(false, "AIS - Email Confirmation", "24 hours")]
-    [InlineData(true, "AIS - Reset your password", "1 hour")]
-    public async Task AccountMessagesUseTheAliceMailServiceWireFormatAndConfiguredHttpsOrigin(bool reset, string subject, string expiry)
+    [InlineData(false, "EmailVerification", "24 hours")]
+    [InlineData(true, "ResetPassword", "1 hour")]
+    public async Task AccountMessagesUseTheAliceMailServiceWireFormatAndConfiguredHttpsOrigin(bool reset, string template, string expiry)
     {
         var publisher = new CapturedMailPublisher();
         var sender = new AccountEmailSender(Options.Create(new EmailSettings
@@ -104,7 +107,7 @@ public sealed class MailTests
         using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(batch)));
         Assert.Equal("user@example.test", message.To.Mailboxes.Single().Address);
         Assert.Equal("noreply@example.test", message.From.Mailboxes.Single().Address);
-        Assert.Equal(subject, message.Subject);
+        Assert.Equal(Subject(template), message.Subject);
         Assert.Contains("https://identity.example.test" + path, message.TextBody);
         Assert.Contains("code=secret&amp;userId=123", message.HtmlBody);
         Assert.Contains(expiry, message.TextBody);
@@ -162,7 +165,7 @@ public sealed class MailTests
             Assert.True(resetDelivery.BasicProperties.Persistent);
             using var resetMessage = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(
                 MessagePackSerializer.Deserialize<List<byte[]>>(resetDelivery.Body))));
-            Assert.Equal("AIS - Reset your password", resetMessage.Subject);
+            Assert.Equal(Subject("ResetPassword"), resetMessage.Subject);
             Assert.Contains("/Account/ResetPassword?code=test", resetMessage.TextBody);
             Assert.Null(await channel.BasicGetAsync(queue, autoAck: true));
         }

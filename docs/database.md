@@ -69,3 +69,7 @@ Registration, confirmation, and resend use the existing Identity tables and requ
 ## Step 6 recovery and profile
 
 Password reset/change and profile name editing use the existing Identity user columns. Identity saves the password hash and security stamp in the same concurrency-checked update; a successful password operation invalidates older reset links, cookies, authorization codes, and refresh tokens. Profile edits retain the password, stamp, email, and claims and only change the current account's three name fields. There is no migration, schema regeneration, or SQL upgrade for Step 6. Both versioned scripts are unchanged.
+
+## Step 7 administration overview
+
+The session and overview endpoints read the existing Identity/OpenIddict mappings. Counts and bounded summaries share a repeatable-read transaction; they perform no writes or schema initialization. Administrator counts use distinct user accounts with an `ais_admin` claim, regardless of claim value. Lockout counts require `LockoutEnabled` and a future `LockoutEnd`. Recent registrations use `CreationTime` descending with ID ascending as a tie-breaker. No last-login/online-activity data is inferred. No migrations, SQL additions, or schema upgrades are needed; both versioned scripts remain unchanged.

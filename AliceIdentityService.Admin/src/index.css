@@ -175,17 +175,17 @@
   margin-top: auto;
   padding-top: 32px;
 }
-.preview-identity {
+.admin-identity {
   border-top: 1px solid var(--ais-border);
   padding: 18px 2px;
   display: flex;
   gap: 10px;
   align-items: center;
 }
-.preview-identity strong {
+.admin-identity strong {
   font-size: 12px;
 }
-.preview-identity small {
+.admin-identity small {
   display: block;
   color: var(--ais-muted);
   margin-top: 2px;
@@ -754,4 +754,30 @@ h2 {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.admin-access {
+  max-width: 620px;
+  margin: 12vh auto;
+  padding: 20px;
+}
+.admin-identity > div,
+.application-card > div,
+.person > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.admin-identity strong {
+  display: block;
+}
+.sidebar-bottom > a {
+  margin-bottom: 8px;
+}
+.overview-refresh {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--ais-muted);
+  font-size: 11px;
 }
