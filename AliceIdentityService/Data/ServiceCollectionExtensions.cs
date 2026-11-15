@@ -30,7 +30,7 @@ public static class ServiceCollectionExtensions
             options.ClaimsIdentity.RoleClaimType = Claims.Role;
             options.ClaimsIdentity.EmailClaimType = Claims.Email;
         }).AddEntityFrameworkStores<AisDbContext>().AddSignInManager();
-        // The OIDC server starts in Step 4; only its persistence is registered here.
+        // Bootstrap needs the stores without starting the protocol server or loading keys.
         services.AddOpenIddict().AddCore(options => options.UseEntityFrameworkCore().UseDbContext<AisDbContext>());
         services.AddScoped<BootstrapService>();
         return services;

@@ -10,11 +10,13 @@ using Microsoft.AspNetCore.Mvc;
 using Serilog;
 
 var bootstrap = args.FirstOrDefault() == "bootstrap";
-var builder = WebApplication.CreateBuilder(bootstrap ? [] : args);
+var reviewClient = args.FirstOrDefault() == "review-client";
+var builder = WebApplication.CreateBuilder(bootstrap || reviewClient ? [] : args);
 builder.Services.AddSerilog((services, logger) =>
     logger.ReadFrom.Configuration(services.GetRequiredService<IConfiguration>()));
 builder.Services.AddAisData();
 builder.Services.AddAisAuthentication();
+if (!bootstrap && !reviewClient) builder.Services.AddAisOpenIddict(builder.Configuration, builder.Environment);
 // The Vite runner binds only HTTP on the backend, so endpoint discovery alone
 // cannot determine the public HTTPS port. Keep redirects active in that mode too.
 builder.Services.AddHttpsRedirection(options => options.HttpsPort = builder.Configuration.GetValue("HTTPS_PORT", 7443));
@@ -28,6 +30,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddHealthChecks().AddCheck<DatabaseReadinessCheck>("database", tags: ["ready"]);
 
 var app = builder.Build();
+if (reviewClient)
+{
+    Environment.ExitCode = await ReviewClientCommand.RunAsync(app.Services, app.Environment);
+    await app.DisposeAsync();
+    return;
+}
 if (bootstrap)
 {
     Environment.ExitCode = await BootstrapCommand.RunAsync(app.Services, args[1..]);
@@ -42,6 +50,16 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
 app.UseForwardedHeaders();
 // /health remains usable by the local development runner before the HTTPS proxy starts.
 app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseHttpsRedirection());
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/connect") || context.Request.Path.StartsWithSegments("/Account"))
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    }
+    await next(context);
+});
+app.UseCors();
 app.UseAuthentication();
 // Static files bypass endpoint authorization. Guard the entire admin namespace
 // before serving its index, bundles, or fallback routes.

@@ -1,7 +1,6 @@
 @model AccountPageModel
 @{
     Layout = null;
-    var contextPreview = Model.IsOidc ? "oidc" : null;
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -17,10 +16,9 @@
 </head>
 <body>
     <div class="preview-banner">
-        <span><strong>AIS3 · Step 3</strong> Direct sign-in is connected. Registration, recovery, and OIDC remain previews.</span>
+        <span><strong>AIS3 · Step 4</strong> Account and OIDC sign-in are connected. Registration, recovery, and admin data remain previews.</span>
         <nav aria-label="Preview navigation">
             <a href="/Account/Login">Direct login</a>
-            <a href="/Account/Login?preview=oidc&amp;app=campus-portal">OIDC login</a>
             <a href="/admin/">Admin preview →</a>
         </nav>
     </div>
@@ -48,7 +46,7 @@
                     <h2 id="account-heading">@Model.Heading</h2>
                     @if (Model.IsOidc)
                     {
-                        <p>to continue to <strong>@Model.ApplicationName</strong></p>
+                        <p>@(Model.Page == "OidcLogout" ? "Requested by" : "to continue to") <strong>@Model.ApplicationName</strong></p>
                     }
                     else
                     {
@@ -58,14 +56,16 @@
                             "ForgotPassword" => "Enter your email to request a password reset link.",
                             "Home" => "Your AIS account session is active.",
                             "Logout" => "This will sign you out of AIS on this browser.",
+                            "OidcLogout" => "Sign out of AIS on this browser?",
+                            "InvalidRequest" => "This sign-in request is invalid or expired. Return to your application and start again.",
                             "AccessDenied" => "Administrator access is required to open this page.",
                             _ => "Sign in to your AIS account."
                         })</p>
                     }
                 </div>
-                @if (Model.Page == "Login" && !Model.IsOidc)
+                @if (Model.Page == "Login")
                 {
-                    <partial name="_LoginForm" model="Model.Login" />
+                    <partial name="~/Views/Account/_LoginForm.cshtml" model="Model.Login" />
                 }
                 else if (Model.Page == "Home")
                 {
@@ -85,6 +85,22 @@
                         <button class="primary-button" type="submit">Sign out</button>
                         <a asp-action="Home">Stay signed in</a>
                     </form>
+                }
+                else if (Model.Page == "OidcLogout")
+                {
+                    <form action="/connect/logout" method="post" class="fields">
+                        @Html.AntiForgeryToken()
+                        @foreach (var parameter in Model.LogoutParameters)
+                        {
+                            <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
+                        }
+                        <button class="primary-button" type="submit" name="confirm" value="yes">Sign out</button>
+                        <a href="/Account">Cancel</a>
+                    </form>
+                }
+                else if (Model.Page == "InvalidRequest")
+                {
+                    <a href="/Account/Login">Go to direct sign-in</a>
                 }
                 else if (Model.Page == "AccessDenied")
                 {
@@ -110,7 +126,7 @@
                         }
                         @if (Model.Page == "Login")
                         {
-                            <div class="form-options"><label class="checkbox"><input type="checkbox" />Remember me</label><a asp-action="ForgotPassword" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">Forgot password?</a></div>
+                            <div class="form-options"><label class="checkbox"><input type="checkbox" />Remember me</label><a asp-controller="Account" asp-action="ForgotPassword" asp-route-context="@Model.OidcContext">Forgot password?</a></div>
                         }
                         <button type="button" class="primary-button" data-preview-action>@(Model.Page == "Register" ? "Create account" : Model.Page == "ForgotPassword" ? "Send reset link" : "Sign in") <span aria-hidden="true">→</span></button>
                         <p class="preview-result" role="status" hidden>This is a visual preview. No account request was sent.</p>
@@ -121,11 +137,11 @@
                     <div class="account-panel-footer">
                         @if (Model.Page == "Login")
                         {
-                            <span>New to AIS? <a asp-action="Register" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">Create an account</a></span>
+                            <span>New to AIS? <a asp-controller="Account" asp-action="Register" asp-route-context="@Model.OidcContext">Create an account</a></span>
                         }
                         else
                         {
-                            <a asp-action="Login" asp-route-preview="@contextPreview" asp-route-app="@Model.AppKey">← Back to sign in</a>
+                            <a asp-controller="Account" asp-action="Login" asp-route-context="@Model.OidcContext">← Back to sign in</a>
                         }
                     </div>
                 }

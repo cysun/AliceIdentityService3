@@ -15,6 +15,7 @@ public class PreviewFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:DefaultConnection"] = "Host=127.0.0.1;Port=1;Database=ais3_unavailable;Username=test;Timeout=1;Command Timeout=1",
+            ["OpenIddict:Issuer"] = "https://localhost/",
             ["Serilog:WriteTo:0:Name"] = "Console",
             ["Serilog:WriteTo:1:Name"] = "File",
             ["Serilog:WriteTo:1:Args:path"] = Path.Combine(Path.GetTempPath(), "ais3-http-test-logs", "ais-.log")
@@ -40,25 +41,21 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     }
 
     [Fact]
-    public async Task OidcPreviewUsesTheCompactLayoutAndRetainsPreviewContext()
+    public async Task OldPreviewParametersCannotEstablishOidcContext()
     {
         var html = await client.GetStringAsync("/Account/Login?preview=oidc&app=campus-portal");
-        Assert.Contains("account-shell oidc", html);
-        Assert.Contains("to continue to <strong>Campus Portal</strong>", html);
-        Assert.DoesNotContain("One account.", html);
-        Assert.Contains("/Account/Register?preview=oidc&amp;app=campus-portal", html);
-        Assert.Contains("/Account/ForgotPassword?preview=oidc&amp;app=campus-portal", html);
+        Assert.Contains("account-shell direct", html);
+        Assert.DoesNotContain("Campus Portal", html);
     }
 
     [Theory]
     [InlineData("/Account/Register?preview=oidc&app=course-manager")]
     [InlineData("/Account/ForgotPassword?preview=oidc&app=course-manager")]
-    public async Task OtherAccountPagesRetainCompactContext(string path)
+    public async Task UnvalidatedNamesDoNotEstablishContextOnPreviewPages(string path)
     {
         var html = await client.GetStringAsync(path);
-        Assert.Contains("account-shell oidc", html);
-        Assert.Contains("Course Manager", html);
-        Assert.Contains("/Account/Login?preview=oidc&amp;app=course-manager", html);
+        Assert.Contains("account-shell direct", html);
+        Assert.DoesNotContain("Course Manager", html);
     }
 
     [Theory]
@@ -84,7 +81,7 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     [Theory]
     [InlineData("/api/not-found")]
     [InlineData("/Account/not-found")]
-    [InlineData("/connect/authorize")]
+    [InlineData("/connect/not-found")]
     public async Task UnknownServerRoutesDoNotReturnSpaHtml(string path)
     {
         var response = await client.GetAsync(path);

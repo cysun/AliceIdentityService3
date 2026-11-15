@@ -34,8 +34,12 @@ async function request(url: string, status: number | Error) {
 }
 
 describe('development admin access', () => {
-  it('leaves public backend routes to the proxy', async () => {
-    const { next, fetch } = await request('/Account/Login?ReturnUrl=%2Fadmin%2F', 401);
+  it.each([
+    '/Account/Login?ReturnUrl=%2Fadmin%2F',
+    '/.well-known/openid-configuration',
+    '/.well-known/jwks',
+  ])('leaves backend route %s to the proxy', async (url) => {
+    const { next, fetch } = await request(url, 401);
     expect(next).toHaveBeenCalledOnce();
     expect(fetch).not.toHaveBeenCalled();
   });

@@ -127,12 +127,11 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 3 preview</strong> · Administrator access required. Data and identity below
+            <strong>Step 4 preview</strong> · Administrator access required. Data and identity below
             are samples.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>
-            <a href="/Account/Login?preview=oidc&app=campus-portal">OIDC login</a>
           </div>
         </div>
         <main id="main" className="main-content">

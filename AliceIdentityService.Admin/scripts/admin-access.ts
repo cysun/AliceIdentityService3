@@ -3,7 +3,7 @@ import type { Plugin } from 'vite';
 // Public account/static routes go to ASP.NET Core. Everything Vite itself serves
 // is admin preview content and must pass the backend's real cookie/claim policy.
 export const backendRoutes =
-  '^/(Account(?:/|$|\\?)|api(?:/|$|\\?)|connect(?:/|$|\\?)|health(?:/|$|\\?)|css/|js/|brand/|$)';
+  '^/(Account(?:/|$|\\?)|api(?:/|$|\\?)|connect(?:/|$|\\?)|\\.well-known/|health(?:/|$|\\?)|css/|js/|brand/|$)';
 
 export function adminAccess(): Plugin {
   return {

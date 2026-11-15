@@ -1,6 +1,6 @@
 # AIS2 compatibility baseline
 
-Baseline inspected from the adjacent AIS2 source and the current local PostgreSQL `ais2` database on 2026-11-14. Step 2 implements persistence compatibility; authentication and protocol behavior remain future review gates. AIS2 remains the reference and is not modified by AIS3.
+Baseline inspected from the adjacent AIS2 source and the current local PostgreSQL `ais2` database on 2026-11-14. Steps 2–4 implement persistence, direct authentication, and initial protocol compatibility. Real-client migration and cutover remain later review gates. AIS2 remains the reference and is not modified by AIS3.
 
 | Area                    | Existing behavior / source                                                                                                     | AIS3 acceptance requirement                                                                                                                            |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -35,3 +35,10 @@ Step 2 uses ignored appsettings.json files and explicit bootstrap command inputs
 - A fresh database created from Scripts/CreateSchema.sql matches the AIS2 table/constraint/standard-index baseline. PopulateSchema.sql is empty; legacy search objects are excluded from fresh-schema requirements. Restored data/history are left unchanged, and runtime behavior does not depend on local EF migrations. Catalog comparison remains test-only.
 - A legacy Identity V3 password-hash fixture verifies successfully, and newly created OpenIddict client secrets round-trip through the store. Existing user passwords/client secrets were not supplied, so actual migrated sign-in and protocol flows remain Steps 3/4 and the migration rehearsal.
 - Persisted token rows being readable does not establish session/token continuity across cutover: signing/encryption and Data Protection keys must still be reviewed.
+
+## Step 4 protocol checks
+
+- Preserves all four AIS2 endpoint paths, code/refresh flows, implicit consent, client-specific PKCE requirements, secrets, registered redirects, and grant/response/scope permissions. Endpoint permissions remain ignored because existing AIS2 client records omit them. Legacy confidential-client and public PKCE fixtures are exercised against the real stores.
+- Preserves `sub` as user ID, `name` as username/email, profile fields, and AIS2 standard/custom scope claim selection. Custom scopes still use their `claims` JSON property and resources. Security stamps and protocol-reserved claims cannot be exported through scope configuration. Userinfo now returns the current allowed claims for a valid access token.
+- Intentional changes include S256-only PKCE, no implicit login from arbitrary preview parameters, protected/expiring login continuation, confirmation plus antiforgery for logout, account/stamp checks on code exchange and refresh, current claims at renewal, and rotating refresh tokens with fixed expiry and replay rejection.
+- A separate standards-based local test client completed sign-in, verified the ID token, renewed tokens, and completed logout. Persisted AIS2 data remains readable without migration; existing real client credentials and old tokens were not used. Representative deployed clients, keys, and cutover continuity still need their migration rehearsal.

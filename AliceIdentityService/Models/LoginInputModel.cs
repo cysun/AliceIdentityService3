@@ -12,4 +12,6 @@ public sealed class LoginInputModel
 
     public bool RememberMe { get; set; }
     public string? ReturnUrl { get; set; }
+    [StringLength(20000)]
+    public string? OidcContext { get; set; }
 }

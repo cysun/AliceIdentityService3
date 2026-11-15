@@ -1,6 +1,6 @@
 # Step 3 review
 
-Steps 1 and 2 are approved and committed. Step 3 is **uncommitted** and stops here for review. Step 4 has not started.
+Step 3 is approved and committed as `9c2c7fa`. The checklist and verification below record the Step 3 handoff; current OIDC behavior and review instructions are in the [Step 4 review](step-4.md).
 
 ## Implemented behavior
 
