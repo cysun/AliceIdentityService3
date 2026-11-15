@@ -36,7 +36,7 @@ internal sealed class OidcTestClient(PostgresTestDatabase database, Authenticati
     public string State { get; } = Guid.NewGuid().ToString("N");
     public string Nonce { get; } = Guid.NewGuid().ToString("N");
 
-    public static async Task<OidcTestClient> Create()
+    public static async Task<OidcTestClient> Create(Action<IServiceCollection>? configure = null)
     {
         var database = await PostgresTestDatabase.CreateAsync();
         await database.InitializeSchemaAsync();
@@ -68,7 +68,7 @@ internal sealed class OidcTestClient(PostgresTestDatabase database, Authenticati
             if (!confidential) application.Requirements.Add(Requirements.Features.ProofKeyForCodeExchange);
             await applications.CreateAsync(application);
         }
-        return new(database, new AuthenticationFactory(database.Db.Database.GetConnectionString()!));
+        return new(database, new AuthenticationFactory(database.Db.Database.GetConnectionString()!, configure));
     }
 
     public Dictionary<string, string?> Parameters() => new()
@@ -269,7 +269,8 @@ public sealed class OidcTests
             var preview = await client.Browser.GetStringAsync("/Account/" + page + "?context=" + Uri.EscapeDataString(context));
             Assert.Contains("account-shell oidc", preview);
             Assert.Contains("/Account/Login?context=", preview);
-            Assert.DoesNotContain("<form", preview);
+            if (page == "Register") Assert.Contains("<form", preview);
+            else Assert.DoesNotContain("<form", preview);
         }
         Assert.Equal(HttpStatusCode.BadRequest, (await client.SubmitLogin(failedHtml, contextOverride: context + "tampered")).StatusCode);
         var protector = client.Factory.Services.GetRequiredService<IDataProtectionProvider>()

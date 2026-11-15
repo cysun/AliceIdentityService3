@@ -89,7 +89,6 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     }
 
     [Theory]
-    [InlineData("/Account/Register")]
     [InlineData("/Account/ForgotPassword")]
     public async Task PreviewDoesNotAcceptAccountSubmissions(string path)
     {

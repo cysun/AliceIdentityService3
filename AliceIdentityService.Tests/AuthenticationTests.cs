@@ -24,7 +24,7 @@ internal sealed class TestClock : TimeProvider
     public void Advance(TimeSpan amount) => now += amount;
 }
 
-internal sealed class AuthenticationFactory(string connection) : PreviewFactory
+internal sealed class AuthenticationFactory(string connection, Action<IServiceCollection>? configure = null) : PreviewFactory
 {
     public TestClock Clock { get; } = new();
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -38,6 +38,8 @@ internal sealed class AuthenticationFactory(string connection) : PreviewFactory
         {
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
             services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options => options.TimeProvider = Clock);
+            services.AddSingleton<TimeProvider>(Clock);
+            configure?.Invoke(services);
         });
     }
 

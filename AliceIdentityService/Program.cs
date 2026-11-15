@@ -16,6 +16,7 @@ builder.Services.AddSerilog((services, logger) =>
     logger.ReadFrom.Configuration(services.GetRequiredService<IConfiguration>()));
 builder.Services.AddAisData();
 builder.Services.AddAisAuthentication();
+builder.Services.AddAisRegistration();
 if (!bootstrap && !reviewClient) builder.Services.AddAisOpenIddict(builder.Configuration, builder.Environment);
 // The Vite runner binds only HTTP on the backend, so endpoint discovery alone
 // cannot determine the public HTTPS port. Keep redirects active in that mode too.
@@ -81,6 +82,7 @@ app.Use(async (context, next) =>
     await next(context);
 });
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseStaticFiles();
 app.MapGet("/", () => Results.Redirect("/Account"));
 app.MapGet("/api/system/info", () => ApplicationInfo.Current).RequireAuthorization(AisConstants.AdminPolicy);

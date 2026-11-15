@@ -1,0 +1,7 @@
+@model ResendConfirmationInputModel
+<form asp-controller="Account" asp-action="ResendConfirmation" method="post" class="fields">
+    <input type="hidden" asp-for="OidcContext" />
+    <div asp-validation-summary="All" class="validation-errors" role="alert"></div>
+    <label class="field" for="email">Email address<input asp-for="Email" id="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="256" /></label>
+    <button type="submit" class="primary-button">Send confirmation email <span aria-hidden="true">→</span></button>
+</form>

@@ -16,7 +16,7 @@
 </head>
 <body>
     <div class="preview-banner">
-        <span><strong>AIS3 · Step 4</strong> Account and OIDC sign-in are connected. Registration, recovery, and admin data remain previews.</span>
+        <span><strong>AIS3 · Step 5</strong> Registration and email confirmation are connected. Recovery and admin data remain previews.</span>
         <nav aria-label="Preview navigation">
             <a href="/Account/Login">Direct login</a>
             <a href="/admin/">Admin preview →</a>
@@ -53,6 +53,12 @@
                         <p>@(Model.Page switch
                         {
                             "Register" => "One account for your connected applications.",
+                            "ResendConfirmation" => "Request a new link to confirm your email address.",
+                            "CheckEmail" => "If this address needs confirmation, an email will arrive shortly. Check your spam folder too.",
+                            "ConfirmEmail" => "One more step to activate your account.",
+                            "EmailConfirmed" => "Your email is confirmed. You can now sign in.",
+                            "ConfirmationInvalid" => "This link is invalid, expired, or already used. Sign in or request a new confirmation email.",
+                            "MailUnavailable" => "We could not queue the confirmation email. Your account remains unconfirmed. Wait a minute, then request another email.",
                             "ForgotPassword" => "Enter your email to request a password reset link.",
                             "Home" => "Your AIS account session is active.",
                             "Logout" => "This will sign you out of AIS on this browser.",
@@ -66,6 +72,44 @@
                 @if (Model.Page == "Login")
                 {
                     <partial name="~/Views/Account/_LoginForm.cshtml" model="Model.Login" />
+                }
+                else if (Model.Page == "Register")
+                {
+                    <partial name="~/Views/Account/_RegistrationForm.cshtml" model="Model.Registration" />
+                }
+                else if (Model.Page == "ResendConfirmation")
+                {
+                    <partial name="~/Views/Account/_ResendConfirmationForm.cshtml" model="Model.Resend" />
+                }
+                else if (Model.Page == "ConfirmEmail")
+                {
+                    <partial name="~/Views/Account/_ConfirmEmailForm.cshtml" model="Model.Confirmation" />
+                }
+                else if (Model.Page is "CheckEmail" or "MailUnavailable" or "ConfirmationInvalid")
+                {
+                    <div class="fields">
+                        @if (Model.IsOidc)
+                        {
+                            <p>@(Model.Page == "MailUnavailable" ? "We could not queue the confirmation email. Your account remains unconfirmed. Wait a minute, then request another email." : "If this address needs confirmation, an email will arrive shortly. Check your spam folder too.")</p>
+                        }
+                        <p>Confirmation links expire after 24 hours. Resends are limited to one per minute and five per hour.</p>
+                        <a asp-controller="Account" asp-action="ResendConfirmation" asp-route-context="@Model.OidcContext">Request another confirmation email</a>
+                        <a asp-controller="Account" asp-action="Login" asp-route-context="@Model.OidcContext">Back to sign in</a>
+                    </div>
+                }
+                else if (Model.Page == "EmailConfirmed")
+                {
+                    <div class="fields">
+                        @if (Model.ContinuationExpired)
+                        {
+                            <p>Your email is confirmed, but your application sign-in request has expired. Return to your application and start sign-in again.</p>
+                        }
+                        else if (Model.IsOidc)
+                        {
+                            <p>Your email is confirmed. Sign in to continue to your application.</p>
+                        }
+                        <a class="primary-button" asp-controller="Account" asp-action="Login" asp-route-context="@Model.OidcContext">Continue to sign in <span aria-hidden="true">→</span></a>
+                    </div>
                 }
                 else if (Model.Page == "Home")
                 {
@@ -108,31 +152,15 @@
                     @if (User.Identity?.IsAuthenticated == true) { <a asp-action="Logout">Sign out to use another account</a> }
                     </div>
                 }
-                else
+                else if (Model.Page == "ForgotPassword")
                 {
                     <div class="fields">
-                        @if (Model.Page == "Register")
-                        {
-                            <div class="two-fields"><label class="field" for="first-name">First name<input id="first-name" autocomplete="off" /></label><label class="field" for="last-name">Last name<input id="last-name" autocomplete="off" /></label></div>
-                        }
                         <label class="field" for="email">Email address<input id="email" type="email" autocomplete="off" placeholder="you@example.com" /></label>
-                        @if (Model.Page != "ForgotPassword")
-                        {
-                            <div class="field"><label for="password">Password</label><span class="password-field"><input id="password" type="password" autocomplete="new-password" placeholder="Enter your password" /><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false">Show</button></span></div>
-                        }
-                        @if (Model.Page == "Register")
-                        {
-                            <label class="field" for="confirm-password">Confirm password<input id="confirm-password" type="password" autocomplete="new-password" placeholder="Re-enter your password" /></label>
-                        }
-                        @if (Model.Page == "Login")
-                        {
-                            <div class="form-options"><label class="checkbox"><input type="checkbox" />Remember me</label><a asp-controller="Account" asp-action="ForgotPassword" asp-route-context="@Model.OidcContext">Forgot password?</a></div>
-                        }
-                        <button type="button" class="primary-button" data-preview-action>@(Model.Page == "Register" ? "Create account" : Model.Page == "ForgotPassword" ? "Send reset link" : "Sign in") <span aria-hidden="true">→</span></button>
+                        <button type="button" class="primary-button" data-preview-action>Send reset link <span aria-hidden="true">→</span></button>
                         <p class="preview-result" role="status" hidden>This is a visual preview. No account request was sent.</p>
                     </div>
                 }
-                @if (Model.Page is "Login" or "Register" or "ForgotPassword")
+                @if (Model.Page is "Login" or "Register" or "ForgotPassword" or "ResendConfirmation")
                 {
                     <div class="account-panel-footer">
                         @if (Model.Page == "Login")

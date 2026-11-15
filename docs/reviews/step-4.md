@@ -1,6 +1,6 @@
 # Step 4 review
 
-Steps 1–3 are approved and committed. Step 4 is **uncommitted** for manual review. Step 5 has not started.
+Step 4 is approved and committed as `d059f0b`. The checklist and verification below record its handoff; current registration/mail behavior and instructions are in the [Step 5 review](step-5.md).
 
 ## Implemented behavior
 

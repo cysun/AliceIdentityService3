@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–3 are approved and committed. Step 4 is implemented and uncommitted for review. Step 5 has not started.** Direct account sign-in/out and OIDC authorization code, refresh, userinfo, and logout are connected. The approved admin UI still uses fictional sample data, behind administrator authorization.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–4 are approved and committed. Step 5 is implemented and uncommitted for review. Step 6 has not started.** Direct/OIDC sign-in, registration, email confirmation, and basic mail delivery integration are connected. The approved admin UI still uses fictional sample data, behind administrator authorization.
 
 ## Projects
 
@@ -11,6 +11,7 @@ AliceIdentityService/          ASP.NET Core: account pages, OIDC/API host, model
   Models/
   Services/
   Data/                       EF DbContext and service registration
+  EmailTemplates/             Versioned email subjects and plain-text/HTML bodies
   Scripts/                    Versioned CreateSchema.sql and PopulateSchema.sql
   Views/
   wwwroot/
@@ -40,7 +41,7 @@ npm run dev --prefix AliceIdentityService.Admin
 
 Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` shows the signed-in session and a sign-out button. Vite checks access with the same backend policy before serving the admin preview.
 
-Other previews: `/Account/Register`, `/Account/ForgotPassword`, `/admin/users`, and `/admin/components`. Registration and recovery remain non-submitting previews. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
+Registration at `/Account/Register` is functional. Recovery at `/Account/ForgotPassword` and admin data at `/admin/users` and `/admin/components` remain previews. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
 
 ## Account sessions
 
@@ -61,6 +62,22 @@ Default token lifetimes are five minutes for authorization codes, one hour for a
 The compact Razor login uses the registered client name and a protected ten-minute continuation, preserving it through validation errors and preview links. Invalid or expired context requires restarting sign-in from the client. Logout requires confirmation and an antiforgery-protected POST before returning to a registered logout URL. Browser clients can call token/userinfo endpoints from registered redirect origins without CORS cookie credentials; account/admin endpoints do not allow cross-origin access.
 
 `OpenIddict:Issuer` defaults to `https://localhost:7443/` and must match the public HTTPS origin used by clients, including through Vite. Development uses OpenIddict's persisted local signing/encryption certificates when both certificate paths are empty. To supply PKCS#12 certificates, configure **both** paths and their passwords in private configuration; relative paths resolve from the backend content root. These token certificates are separate from the HTTPS development certificate. Testing uses ephemeral keys. Production hosting/key management remains blocked until the hardening review.
+
+## Registration and email confirmation
+
+Registration preserves the approved full or compact Razor layout. New accounts require email confirmation and receive no administrative claims. Duplicate registration never overwrites a password or profile. Password requirements use the existing Identity defaults: at least six characters with uppercase/lowercase letters, a digit, and a symbol.
+
+Confirmation links expire after 24 hours. Opening a link displays a confirmation form; its antiforgery-protected POST confirms the email and rotates the security stamp atomically. Used/expired/invalid links are rejected. Confirmation does not sign the browser in: the user enters their password afterward. Valid OIDC context continues to the client; if the ten-minute sign-in context expires first, confirmation still works and the user is asked to restart sign-in from their application.
+
+`/Account/ResendConfirmation` requests another email. Normal registration/resend results use a generic message for new, existing, or unknown addresses. Registration and resend share a limit of ten POSTs per IP per fifteen minutes (HTTP 429); each normalized recipient is limited to one email attempt per minute and five per hour. These bounded, in-process recipient limits reset when the service restarts; distributed limits remain a deployment concern.
+
+Configure the `Email` and `RabbitMQ` sections from `appsettings.sample.json` in your private configuration. `Email:AppUrl` is the public HTTPS origin used in links (default `https://localhost:7443/`); it does not come from the request Host header. Set a sender address accepted by your mail provider. RabbitMQ host, credentials, and queue must match the AliceMailService consumer; AIS3 also supports explicit port, virtual host, and TLS settings for the publisher. SMTP configuration belongs to AliceMailService, not AIS3.
+
+AIS3 publishes a persistent, mandatory MessagePack list of MIME-message byte arrays to the durable queue and awaits broker confirmation. AliceMailService sends the email. A queue/configuration failure returns HTTP 503 with a retry page; a newly created account remains unconfirmed and can request another email after the cooldown. Broker acceptance is not proof of mailbox delivery, and a timeout can leave publication uncertain, so retry may produce a duplicate email. There is no automatic application retry or database outbox in Step 5. Application mail logs omit recipients, tokens, links, and raw exception text.
+
+Email content is kept in `AliceIdentityService/EmailTemplates`: `EmailVerification.Subject.txt`, `EmailVerification.Body.txt` (plain text), and `EmailVerification.Body.html`. The bodies use the literal `{{link}}` placeholder; HTML substitutions are escaped. Files are read when sending and copied into build/publish output, so copy edits do not require changing C# code. Missing or invalid templates follow the same retry/failure path as a mail-publication failure. Step 6 can add password-reset templates using the same renderer.
+
+The [Step 5 review instructions](docs/reviews/step-5.md) cover configuration, direct/OIDC registration, resend, and failure cases. Basic delivery integration moved forward from Step 12; Step 6 will reuse it for password recovery, and Step 12 retains the operations review.
 
 ## Configuration and database
 
@@ -88,7 +105,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 4 checklist](docs/reviews/step-4.md) gives commands for running the full suite and manual protocol checks. The separate review client has its own build/format commands there.
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 5 checklist](docs/reviews/step-5.md) gives commands for running the full suite and manual registration/mail checks. The separate review client has its own build/format commands there.
 
 To run the built UI using ASP.NET Core alone:
 
@@ -99,4 +116,4 @@ dotnet run --project AliceIdentityService
 
 Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its administrative data is still a sample. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 4 review checklist](docs/reviews/step-4.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 5.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 5 review checklist](docs/reviews/step-5.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 6.
