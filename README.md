@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–6 are approved and committed. Step 7 is implemented and uncommitted for review. Step 8 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search/details remain clearly labeled previews until Step 8.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–7 are approved and committed. Step 8 is implemented and uncommitted for review. Step 9 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, and read-only details use the database.
 
 ## Projects
 
@@ -41,7 +41,7 @@ npm run dev --prefix AliceIdentityService.Admin
 
 Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` (also `/Account/Profile`) shows your profile, editable names, password-change link, and sign-out button. Vite checks access with the same backend policy before serving the admin UI.
 
-Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. The overview at `/admin/` is live; `/admin/users` and `/admin/components` remain previews. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
+Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. The overview at `/admin/` and user directory at `/admin/users` are live; `/admin/components` remains a local component preview. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
 
 ## Account sessions
 
@@ -99,9 +99,23 @@ The session response contains only the current user's ID, email and names, the o
 
 The overview uses one consistent database snapshot for total users, registered applications, unconfirmed emails, distinct accounts assigned `ais_admin`, and enabled/unexpired lockouts. Administrator counts include assigned claims regardless of their value or the account's current lockout/confirmation state. Recent registrations show at most five accounts, ordered by creation time descending and ID ascending for ties. Application cards show at most six registered clients, ordered by display name (falling back to client ID/record ID). **Refresh** updates the snapshot; session polling does not refresh the overview. A registered client is not a measurement of online activity.
 
-Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows do not open the sample user detail pages. `/admin/users` remains the approved sample search/detail UI for Step 8; clients/scopes remain their planned pages, and component demonstrations remain local previews.
+Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows open live user details, and attention links open filtered user lists. Clients/scopes remain their planned pages, and component demonstrations remain local previews.
 
-See the [Step 7 review instructions](docs/reviews/step-7.md) for counts, session expiry/sign-out, access denial, failure recovery, and regression checks. No schema or configuration changes are needed. Stop for manual review before Step 8.
+See the [Step 7 review instructions](docs/reviews/step-7.md) for counts, session expiry/sign-out, access denial, failure recovery, and regression checks. Step 7 itself needed no schema changes. Step 8 adds the search objects described below.
+
+## User directory and search
+
+`/admin/users` loads `/api/admin/users`; `/admin/users/{id}` loads the matching read-only detail endpoint. Both require the current `ais_admin` claim and use the existing session/failure boundary. Responses are not cached. No administrative mutation endpoints are added in Step 8.
+
+Search is case-insensitive substring matching across first name, last name, screen name, and email. Every whitespace-separated term must match somewhere, in any order. `%`, `_`, and backslash are literal characters; accents are not folded and typos are not corrected. Short and Unicode names remain searchable. Input is limited to 256 characters and eight distinct terms. Typing is debounced by 300 ms, cancels obsolete requests, and preserves input focus.
+
+Search, status, sorting, page, and page size are stored in the URL. Sorting and pagination run on the server; no whole-directory download is used. Default order is display name (case-insensitive, falling back to first/last name); User, Status and Joined headers support ascending/descending order with ID ascending as the final tie-breaker. Pages default to 25 users, with 50/100 also offered; the API accepts 1–100 per page and pages 1–10,000. Pages beyond the current result set return its last page. Filter/sort/page-size changes reset paging, and detail links preserve the list URL.
+
+Confirmed/Unconfirmed filter the email-confirmation flag, including accounts that are locked; Locked requires enabled, unexpired lockout. The badge gives active lockout precedence over email-confirmation status. These definitions match the overview's attention counts. Counts and page results share a repeatable-read snapshot. Refresh explicitly reloads the current view.
+
+Details show names, email/confirmation, creation time, administrator membership, stored claim type/value pairs, and password-presence/two-factor/lockout summaries. Claim text is escaped. Identity entities, password hashes, security/concurrency stamps and login/token secrets are never serialized. Account operations remain Step 9; claim editing remains Step 10.
+
+**Apply `Scripts/PopulateSchema.sql` to your existing test database before reviewing Step 8.** It installs `pg_trgm` and one GIN expression index without changing Identity tables. See the [Step 8 review instructions](docs/reviews/step-8.md) for database setup, API/query limits, browser checks, and automated tests. Stop for manual review before Step 9.
 
 ## Configuration and database
 
@@ -117,9 +131,9 @@ psql -X -h /tmp -d ais3 -v ON_ERROR_STOP=1 -f AliceIdentityService/Scripts/Popul
 dotnet run --project AliceIdentityService -- bootstrap --email admin@example.test --first-name First --last-name Last
 ```
 
-If the empty database already exists, skip createdb. CreateSchema.sql is for an empty database and is not a repeatable upgrade script. PopulateSchema.sql is currently empty; future custom SQL belongs there. Bootstrap prompts for a password, creates a confirmed administrator and standard scopes, and is safe to repeat. It never promotes or resets an existing non-admin account.
+If the empty database already exists, skip createdb. CreateSchema.sql is for an empty database and is not a repeatable upgrade script. PopulateSchema.sql installs the additive Step 8 search extension/index and is safe to rerun. Bootstrap prompts for a password, creates a confirmed administrator and standard scopes, and is safe to repeat. It never promotes or resets an existing non-admin account.
 
-For an **up-to-date AIS2 dump restore**, no bootstrap or data conversion is required. Keep its existing tables/data and skip both setup scripts. Migration IDs are irrelevant at runtime. See [database scripts and compatibility](docs/database.md) for the generation and restore workflow. Web startup never changes the schema. `/health` checks liveness; `/health/ready` checks that the users table can be queried.
+For an **up-to-date AIS2 dump restore**, no bootstrap or data conversion is required. Keep its existing tables/data, skip CreateSchema.sql, and explicitly apply PopulateSchema.sql for the Step 8 search index. Migration IDs are irrelevant at runtime. See [database scripts and compatibility](docs/database.md) for the generation and restore workflow. Web startup never changes the schema. `/health` checks liveness; `/health/ready` checks that the users table can be queried.
 
 ## Build and test
 
@@ -129,7 +143,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 7 checklist](docs/reviews/step-7.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 8 checklist](docs/reviews/step-8.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
 
 To run the built UI using ASP.NET Core alone:
 
@@ -138,6 +152,6 @@ npm run build --prefix AliceIdentityService.Admin
 dotnet run --project AliceIdentityService
 ```
 
-Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity and overview are live, while user browsing remains a labeled sample. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
+Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory and read-only details are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 7 review checklist](docs/reviews/step-7.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 8.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 8 review checklist](docs/reviews/step-8.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 9.

@@ -1,15 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpDown } from 'lucide-react';
 import {
-  createColumnHelper,
-  createCoreRowModel,
-  createSortedRowModel,
-  rowSortingFeature,
-  sortFn_text,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table';
-import {
   Table,
   TableBody,
   TableCell,
@@ -18,77 +9,75 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { initials, type PreviewUser } from '@/preview-data';
+import { initials } from '@/lib/person';
+import type { AdminUser, UserSort, UserStatus } from '@/lib/admin-api';
 
-const features = tableFeatures({
-  rowSortingFeature,
-  coreRowModel: createCoreRowModel(),
-  sortedRowModel: createSortedRowModel(),
-});
-const column = createColumnHelper<typeof features, PreviewUser>();
-export function StatusBadge({ status }: { status: PreviewUser['status'] }) {
+export function StatusBadge({ status }: { status: UserStatus }) {
   return (
     <Badge variant="outline" className={`status status-${status.toLowerCase()}`}>
       {status}
     </Badge>
   );
 }
-const columns = column.columns([
-  column.accessor('name', {
-    header: 'User',
-    sortFn: sortFn_text,
-    cell: ({ row }) => (
-      <Link className="person" to={`/users/${row.original.id}`}>
-        <span className="avatar">{initials(row.original.name)}</span>
-        <span>
-          <strong>{row.original.name}</strong>
-          <small>{row.original.email}</small>
-        </span>
-      </Link>
-    ),
-  }),
-  column.accessor('status', {
-    header: 'Status',
-    sortFn: sortFn_text,
-    cell: ({ getValue }) => <StatusBadge status={getValue()} />,
-  }),
-  column.accessor('joined', { header: 'Joined', sortFn: sortFn_text }),
-]);
-export function UserTable({ data }: { data: PreviewUser[] }) {
-  const table = useTable({ features, columns, data });
+
+export function UserTable({
+  data,
+  sort,
+  direction,
+  onSort,
+  listSearch,
+}: {
+  data: AdminUser[];
+  sort: UserSort;
+  direction: 'asc' | 'desc';
+  onSort: (sort: UserSort) => void;
+  listSearch: string;
+}) {
+  const columns: { key: UserSort; label: string }[] = [
+    { key: 'name', label: 'User' },
+    { key: 'status', label: 'Status' },
+    { key: 'joined', label: 'Joined' },
+  ];
   return (
-    <Table aria-label="Sample users">
+    <Table aria-label="Users">
       <TableHeader>
-        {table.getHeaderGroups().map((group) => (
-          <TableRow key={group.id}>
-            {group.headers.map((header) => (
-              <TableHead
-                key={header.id}
-                aria-sort={
-                  header.column.getIsSorted() === 'asc'
-                    ? 'ascending'
-                    : header.column.getIsSorted() === 'desc'
-                      ? 'descending'
-                      : 'none'
-                }
-              >
-                <button className="sort-button" onClick={header.column.getToggleSortingHandler()}>
-                  <table.FlexRender header={header} />
-                  <ArrowUpDown size={13} aria-hidden="true" />
-                </button>
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
+        <TableRow>
+          {columns.map(({ key, label }) => (
+            <TableHead
+              key={key}
+              aria-sort={sort === key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+            >
+              <button className="sort-button" onClick={() => onSort(key)}>
+                {label}
+                <ArrowUpDown size={13} aria-hidden="true" />
+              </button>
+            </TableHead>
+          ))}
+        </TableRow>
       </TableHeader>
       <TableBody>
-        {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
-            {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id}>
-                <table.FlexRender cell={cell} />
-              </TableCell>
-            ))}
+        {data.map((user) => (
+          <TableRow key={user.id}>
+            <TableCell>
+              <Link
+                className="person"
+                to={{ pathname: '/users/' + encodeURIComponent(user.id), search: listSearch }}
+              >
+                <span className="avatar" aria-hidden="true">
+                  {initials(user.name)}
+                </span>
+                <span>
+                  <strong>{user.name}</strong>
+                  <small>{user.email || 'No email address'}</small>
+                </span>
+              </Link>
+            </TableCell>
+            <TableCell>
+              <StatusBadge status={user.status} />
+            </TableCell>
+            <TableCell>
+              <time dateTime={user.createdAt}>{new Date(user.createdAt).toLocaleDateString()}</time>
+            </TableCell>
           </TableRow>
         ))}
         {data.length === 0 && (

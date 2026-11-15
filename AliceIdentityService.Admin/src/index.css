@@ -781,3 +781,26 @@ h2 {
   color: var(--ais-muted);
   font-size: 11px;
 }
+
+.user-pagination,
+.pagination-controls,
+.user-detail-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.user-pagination {
+  justify-content: space-between;
+}
+.pagination-controls {
+  font-size: 0.8rem;
+}
+.pagination-controls > span {
+  white-space: nowrap;
+}
+.detail-list dd,
+.detail-list dt {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}

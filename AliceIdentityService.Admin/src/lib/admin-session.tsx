@@ -50,11 +50,15 @@ export function AdminAccess({ children }: { children: ReactNode }) {
   }, [block]);
 
   const request = useCallback(
-    async <T,>(path: string, signal?: AbortSignal) => {
+    async <T,>(path: string, signal?: AbortSignal, options?: { allowNotFound?: boolean }) => {
       try {
         return await getAdminJson<T>(path, signal);
       } catch (error) {
-        if (!signal?.aborted) block(failureStatus(error));
+        if (
+          !signal?.aborted &&
+          !(options?.allowNotFound && error instanceof AdminApiError && error.status === 404)
+        )
+          block(failureStatus(error));
         throw error;
       }
     },

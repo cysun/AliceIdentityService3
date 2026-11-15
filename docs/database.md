@@ -3,7 +3,7 @@
 Version control contains two files under `AliceIdentityService/Scripts`:
 
 - **CreateSchema.sql**: generated from the EF model using `dotnet ef migrations script`; creates a fresh database's tables, constraints, and model-defined indexes.
-- **PopulateSchema.sql**: additional hand-written SQL when a feature requires it. It is currently empty. We will decide on search indexes/functions when implementing user search; AIS3 does not create AIS2's legacy search objects now.
+- **PopulateSchema.sql**: additional hand-written SQL. Step 8 installs `pg_trgm` in `public` and a GIN expression index for user substring search. It is additive and rerunnable; AIS3 does not require or recreate AIS2's legacy search function/indexes.
 
 `Migrations/` and its model snapshot are ignored local tooling artifacts. The application, bootstrap command, and tests do not require these files or compare migration IDs.
 
@@ -44,7 +44,7 @@ Bootstrap prompts for a password and creates a confirmed administrator with the 
 
 ## AIS2 compatibility
 
-An up-to-date AIS2 dump can be restored directly. Do not run CreateSchema.sql or PopulateSchema.sql over that restore, and do not alter its migration history. Its existing administrator/scopes normally make bootstrap unnecessary.
+An up-to-date AIS2 dump can be restored directly. Do not run CreateSchema.sql over that restore or alter its migration history. **Apply the reviewed Step 8 PopulateSchema.sql once after restoring** to add the search objects; rerunning it is safe. Its existing administrator/scopes normally make bootstrap unnecessary.
 
 For a separate test copy:
 
@@ -54,9 +54,10 @@ umask 077
 pg_dump -h /tmp -Fc --no-owner --no-privileges -f .dev/db/ais2.dump ais2
 createdb -h /tmp -T template0 ais3_copy
 pg_restore -h /tmp --no-owner --no-privileges --exit-on-error -d ais3_copy .dev/db/ais2.dump
+psql -X -h /tmp -d ais3_copy -v ON_ERROR_STOP=1 -f AliceIdentityService/Scripts/PopulateSchema.sql
 ```
 
-User/string IDs, hashes, stamps, claims, client settings/secrets, scopes, authorizations, and tokens retain their AIS2 table/column mappings. CreationTime keeps its default; authorization Type is varchar(50), and token Type is varchar(150). A fresh AIS3 database has the same shared table structure and standard indexes. It intentionally omits AIS2's custom search function/expression indexes, which may remain in a restored dump without being required by AIS3.
+User/string IDs, hashes, stamps, claims, client settings/secrets, scopes, authorizations, and tokens retain their AIS2 table/column mappings. CreationTime keeps its default; authorization Type is varchar(50), and token Type is varchar(150). A fresh AIS3 database has the same shared table structure and standard indexes. It omits AIS2's custom prefix-search function/expression indexes, which may remain in a restored dump without being required by AIS3. Step 8 adds its own index to either database; shared tables/columns and standard indexes are unchanged.
 
 Integration tests execute the actual versioned scripts on disposable databases and compare the shared schema/model mappings. Separate read-only tests validate an AIS2 restore. These tests also run without ignored migration files, and bootstrap is tested without a migration-history table. Steps 3 and 4 use those same tables for direct sign-in and OIDC; neither changes the model/schema or requires a SQL upgrade. Step 4 writes authorizations and tokens through OpenIddict during normal protocol use. Existing token rows do not establish usability under different signing/encryption keys; cutover key/session continuity remains deferred.
 
@@ -73,3 +74,35 @@ Password reset/change and profile name editing use the existing Identity user co
 ## Step 7 administration overview
 
 The session and overview endpoints read the existing Identity/OpenIddict mappings. Counts and bounded summaries share a repeatable-read transaction; they perform no writes or schema initialization. Administrator counts use distinct user accounts with an `ais_admin` claim, regardless of claim value. Lockout counts require `LockoutEnabled` and a future `LockoutEnd`. Recent registrations use `CreationTime` descending with ID ascending as a tie-breaker. No last-login/online-activity data is inferred. No migrations, SQL additions, or schema upgrades are needed; both versioned scripts remain unchanged.
+
+## Step 8 user search
+
+Apply the versioned additive script explicitly to an existing AIS3 test database or a separate AIS2 restore:
+
+```sh
+psql -X -h /tmp -d ais3 -v ON_ERROR_STOP=1 -f AliceIdentityService/Scripts/PopulateSchema.sql
+```
+
+Use the database owner/deployment role, with permission to install `pg_trgm` and create an index on `public."AspNetUsers"`. The PostgreSQL installation must provide the extension. This script expects `pg_trgm` in `public`; review an installation in another schema before applying it. Run while the test application is stopped: ordinary CREATE INDEX blocks writes during construction. The script is transactional and uses IF NOT EXISTS for reruns; it does not repair a different object already using the same name. No schema work runs during startup or requests.
+
+The only additions are:
+
+- `pg_trgm`, including its PostgreSQL-managed extension functions/operators.
+- `public."IX_AspNetUsers_Search"`, a nonunique GIN index with `gin_trgm_ops` on `"FirstName" || ' ' || "LastName" || ' ' || "ScreenName" || ' ' || COALESCE("Email", '')`.
+
+The EF query uses that exact expression with parameterized `ILIKE` and an explicit backslash escape. PostgreSQL maintains the expression index when a name/email changes; there is no generated column, trigger, custom search function, or new model property. `CreateSchema.sql` stays unchanged, and EF migration source stays ignored. Legacy AIS2 search objects are retained; removal is outside this step.
+
+The extension/index improve selective substring searches. Short/common patterns or small tables may correctly use sequential scans. Sorting/counting still have costs: the GIN index does not provide name/status/date ordering. Step 8 does not add speculative indexes on every sort/filter field. Existing normalized email/username and primary-key indexes continue serving exact Identity lookups.
+
+Check the installation:
+
+```sql
+SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_trgm';
+SELECT i.indexdef, x.indisvalid
+FROM pg_indexes i
+JOIN pg_class c ON c.relname = i.indexname AND c.relnamespace = 'public'::regnamespace
+JOIN pg_index x ON x.indexrelid = c.oid
+WHERE i.schemaname = 'public' AND i.indexname = 'IX_AspNetUsers_Search';
+```
+
+The integration suite applies both scripts on fresh disposable databases, reapplies PopulateSchema.sql, and checks the actual EF-generated count/page query plans against 30,000 synthetic users with EXPLAIN (ANALYZE, BUFFERS). It verifies that selective search uses the GIN index without disabling sequential scans, and exercises common/short search and a deep page. AIS2 restore checks remain read-only after the separately applied setup script. The schema comparison excludes extension-owned functions and the explicitly tested additive index while continuing to compare the shared AIS2 contract.

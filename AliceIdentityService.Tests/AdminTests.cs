@@ -15,7 +15,7 @@ namespace AliceIdentityService.Tests;
 [Collection("PostgreSQL")]
 public sealed class AdminTests
 {
-    private static readonly string[] Endpoints = ["/api/admin/session", "/api/admin/overview"];
+    private static readonly string[] Endpoints = ["/api/admin/session", "/api/admin/overview", "/api/admin/users", "/api/admin/users/missing"];
 
     private static async Task<HttpResponseMessage> Login(HttpClient browser, string email = OidcTestClient.Email, bool remember = false)
     {
@@ -94,7 +94,7 @@ public sealed class AdminTests
             Assert.Equal(ticket.Properties.ExpiresUtc, json.GetProperty("expiresAt").GetDateTimeOffset());
             Assert.Equal(lifetime, json.GetProperty("expiresAt").GetDateTimeOffset() - ticket.Properties.IssuedUtc);
             Assert.Equal(client.Factory.Clock.GetUtcNow(), json.GetProperty("serverTime").GetDateTimeOffset());
-            Assert.Equal(7, json.GetProperty("application").GetProperty("implementationStep").GetInt32());
+            Assert.Equal(8, json.GetProperty("application").GetProperty("implementationStep").GetInt32());
             client.Factory.Clock.Advance(lifetime);
             foreach (var endpoint in Endpoints) Assert.Equal(HttpStatusCode.Unauthorized, (await browser.GetAsync(endpoint)).StatusCode);
         }

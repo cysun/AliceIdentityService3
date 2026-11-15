@@ -20,8 +20,8 @@ function session(lifetimeMs = 8 * 60 * 60 * 1000): AdminSession {
     expiresAt: new Date(now.getTime() + lifetimeMs).toISOString(),
     application: {
       name: 'Alice Identity Service',
-      version: '3.0.0-preview.7',
-      implementationStep: 7,
+      version: '3.0.0-preview.8',
+      implementationStep: 8,
     },
   };
 }
@@ -61,6 +61,10 @@ function api(
   const fetch = vi.fn((url: string) => {
     if (url === '/api/admin/session') return sessionResponse();
     if (url === '/api/admin/overview') return overviewResponse();
+    if (url.startsWith('/api/admin/users?'))
+      return Promise.resolve(
+        json({ items: [], totalCount: 0, page: 1, pageSize: 25, asOf: overview.asOf }),
+      );
     throw new Error('Unexpected API path: ' + url);
   });
   vi.stubGlobal('fetch', fetch);
@@ -100,7 +104,10 @@ describe('live administration', () => {
     expect(screen.getByText('Actual Portal')).toBeInTheDocument();
     expect(screen.queryByText('Alex Morgan')).not.toBeInTheDocument();
     expect(screen.queryByText('Campus Portal')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Recent/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Recent/ })).toHaveAttribute(
+      'href',
+      '/users/real-user',
+    );
     expect(screen.getByRole('link', { name: 'Your account' })).toHaveAttribute('href', '/Account');
     expect(screen.getByRole('link', { name: 'Sign out' })).toHaveAttribute(
       'href',
@@ -135,17 +142,21 @@ describe('live administration', () => {
     expect(screen.getByRole('region', { name: 'Total users' })).toHaveTextContent('42');
   });
 
-  it('keeps user browsing clearly labeled as sample data and rechecks access on route changes', async () => {
+  it('loads the live directory and rechecks access on route changes', async () => {
     const fetch = api();
     mount();
     await screen.findByText('Actual Administrator');
     await userEvent.setup().click(screen.getByRole('link', { name: 'Users' }));
-    expect(await screen.findByText('Fictional sample data')).toBeInTheDocument();
+    expect(await screen.findByText('No users match your filters.')).toBeInTheDocument();
+    expect(screen.queryByText('Fictional sample data')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Users' })).toBeInTheDocument();
     expect(fetch.mock.calls.filter(([url]) => url === '/api/admin/session')).toHaveLength(2);
     expect(
       fetch.mock.calls.every(
-        ([url]) => url === '/api/admin/session' || url === '/api/admin/overview',
+        ([url]) =>
+          url === '/api/admin/session' ||
+          url === '/api/admin/overview' ||
+          url.startsWith('/api/admin/users?'),
       ),
     ).toBe(true);
   });

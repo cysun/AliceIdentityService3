@@ -38,6 +38,39 @@ export class AdminApiError extends Error {
   }
 }
 
+export type UserStatus = 'Confirmed' | 'Unconfirmed' | 'Locked';
+export type UserSort = 'name' | 'status' | 'joined';
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string | null;
+  status: UserStatus;
+  createdAt: string;
+  administrator: boolean;
+};
+export type AdminUserPage = {
+  items: AdminUser[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  asOf: string;
+};
+export type AdminUserDetail = {
+  user: AdminUser;
+  firstName: string;
+  lastName: string;
+  screenName: string;
+  emailConfirmed: boolean;
+  security: {
+    hasPassword: boolean;
+    twoFactorEnabled: boolean;
+    lockoutEnabled: boolean;
+    lockoutEnd: string | null;
+    accessFailedCount: number;
+  };
+  claims: { type: string | null; value: string | null }[];
+};
+
 export async function getAdminJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const timeout = AbortSignal.timeout(10_000);
   const response = await fetch(path, {

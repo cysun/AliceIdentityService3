@@ -17,4 +17,5 @@ SELECT 'function', p.proname || '(' || pg_get_function_identity_arguments(p.oid)
        jsonb_build_array(l.lanname, pg_get_function_result(p.oid), trim(p.prosrc), pg_get_expr(p.proargdefaults, 0))::text
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_language l ON l.oid = p.prolang
 WHERE n.nspname = 'public' AND p.prokind = 'f'
+  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
 ORDER BY kind, key;

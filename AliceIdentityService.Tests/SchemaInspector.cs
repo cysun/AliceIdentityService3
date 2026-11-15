@@ -40,8 +40,9 @@ public sealed class SchemaInspector(AisDbContext db)
 
     public async Task<SchemaReport> CheckAsync(bool includeLegacySearchObjects = true, CancellationToken cancellationToken = default)
     {
-        // The fresh AIS3 schema intentionally defers AIS2's custom search objects.
-        bool Include(SchemaEntry entry) => includeLegacySearchObjects || !IsLegacySearchObject(entry);
+        // Compare the unchanged AIS2 contract; Step 8 additive search objects are tested separately.
+        bool Include(SchemaEntry entry) => entry.Key != "AspNetUsers.IX_AspNetUsers_Search" &&
+            (includeLegacySearchObjects || !IsLegacySearchObject(entry));
         var actual = (await ReadCatalogAsync(cancellationToken)).Where(Include).ToDictionary(entry => (entry.Kind, entry.Key));
         var differences = new List<string>();
         foreach (var expected in Baseline.Where(Include))

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import { Users, AppWindow, MailCheck, ShieldCheck, RefreshCw } from 'lucide-react';
 import { StatusBadge } from '@/components/user-table';
@@ -114,7 +115,7 @@ export function Overview() {
               {data.recentRegistrations.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
-                    <div className="person">
+                    <Link className="person" to={'/users/' + encodeURIComponent(user.id)}>
                       <span className="avatar" aria-hidden="true">
                         {initials(user.name)}
                       </span>
@@ -122,7 +123,7 @@ export function Overview() {
                         <strong>{user.name}</strong>
                         <small>{user.email}</small>
                       </span>
-                    </div>
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={user.status} />
@@ -151,7 +152,7 @@ export function Overview() {
               <p>Accounts to keep an eye on.</p>
             </div>
           </div>
-          <div className="attention-item">
+          <Link className="attention-item" to="/users?status=Unconfirmed">
             <span className="attention-icon">
               <MailCheck size={19} />
             </span>
@@ -162,8 +163,8 @@ export function Overview() {
               </strong>
               <p>These users haven't confirmed their email addresses yet.</p>
             </div>
-          </div>
-          <div className="attention-item">
+          </Link>
+          <Link className="attention-item" to="/users?status=Locked">
             <span className="attention-icon">
               <ShieldCheck size={19} />
             </span>
@@ -174,7 +175,7 @@ export function Overview() {
               </strong>
               <p>Accounts whose enabled lockout has not expired.</p>
             </div>
-          </div>
+          </Link>
         </section>
       </div>
       <section className="panel">
