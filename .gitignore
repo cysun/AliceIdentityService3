@@ -2,7 +2,7 @@
 **/bin/
 **/obj/
 **/node_modules/
-src/AliceIdentityService.Web/wwwroot/admin/
+AliceIdentityService/wwwroot/admin/
 artifacts/
 coverage/
 TestResults/
@@ -12,7 +12,14 @@ TestResults/
 .env
 .env.*
 !.env.example
-appsettings.Local.json
+appsettings.json
+appsettings.*.json
+!appsettings.sample.json
+!appsettings.*.sample.json
+*.dump
+*.backup
+logs/
+*.log
 *.pfx
 *.p12
 *.pem
@@ -23,3 +30,6 @@ appsettings.Local.json
 .DS_Store
 *.user
 *.suo
+# My Settings
+Migrations/
+deploy.sh

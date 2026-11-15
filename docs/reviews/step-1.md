@@ -1,5 +1,7 @@
 # Step 1 review
 
+> Historical Step 1 record. For current project paths and commands, use the [README](../../README.md) and [Step 2 checklist](step-2.md).
+
 Status: approved by the user for commit, including the reviewed account copy and branding changes. **Step 2 has not started; its configuration and database compatibility requirements are being discussed.**
 
 ## Run

@@ -1,0 +1,712 @@
+[
+  {
+    "Kind": "column",
+    "Key": "AspNetRoleClaims.ClaimType",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoleClaims.ClaimValue",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoleClaims.Id",
+    "Definition": "[\"integer\", false, null, \"d\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoleClaims.RoleId",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoles.ConcurrencyStamp",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoles.Id",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoles.Name",
+    "Definition": "[\"character varying(256)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetRoles.NormalizedName",
+    "Definition": "[\"character varying(256)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserClaims.ClaimType",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserClaims.ClaimValue",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserClaims.Id",
+    "Definition": "[\"integer\", false, null, \"d\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserClaims.UserId",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserLogins.LoginProvider",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserLogins.ProviderDisplayName",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserLogins.ProviderKey",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserLogins.UserId",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserRoles.RoleId",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserRoles.UserId",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserTokens.LoginProvider",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserTokens.Name",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserTokens.UserId",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUserTokens.Value",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.AccessFailedCount",
+    "Definition": "[\"integer\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.ConcurrencyStamp",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.CreationTime",
+    "Definition": "[\"timestamp with time zone\", false, \"CURRENT_TIMESTAMP\", \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.Email",
+    "Definition": "[\"character varying(256)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.EmailConfirmed",
+    "Definition": "[\"boolean\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.FirstName",
+    "Definition": "[\"character varying(255)\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.Id",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.LastName",
+    "Definition": "[\"character varying(255)\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.LockoutEnabled",
+    "Definition": "[\"boolean\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.LockoutEnd",
+    "Definition": "[\"timestamp with time zone\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.NormalizedEmail",
+    "Definition": "[\"character varying(256)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.NormalizedUserName",
+    "Definition": "[\"character varying(256)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.PasswordHash",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.PhoneNumber",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.PhoneNumberConfirmed",
+    "Definition": "[\"boolean\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.ScreenName",
+    "Definition": "[\"character varying(255)\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.SecurityStamp",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.TwoFactorEnabled",
+    "Definition": "[\"boolean\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "AspNetUsers.UserName",
+    "Definition": "[\"character varying(256)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.ApplicationType",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.ClientId",
+    "Definition": "[\"character varying(100)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.ClientSecret",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.ClientType",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.ConcurrencyToken",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.ConsentType",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.DisplayName",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.DisplayNames",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.Id",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.JsonWebKeySet",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.Permissions",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.PostLogoutRedirectUris",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.Properties",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.RedirectUris",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.Requirements",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictApplications.Settings",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.ApplicationId",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.ConcurrencyToken",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.CreationDate",
+    "Definition": "[\"timestamp with time zone\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.Id",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.Properties",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.Scopes",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.Status",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.Subject",
+    "Definition": "[\"character varying(400)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictAuthorizations.Type",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.ConcurrencyToken",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.Description",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.Descriptions",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.DisplayName",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.DisplayNames",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.Id",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.Name",
+    "Definition": "[\"character varying(200)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.Properties",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictScopes.Resources",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.ApplicationId",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.AuthorizationId",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.ConcurrencyToken",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.CreationDate",
+    "Definition": "[\"timestamp with time zone\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.ExpirationDate",
+    "Definition": "[\"timestamp with time zone\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.Id",
+    "Definition": "[\"text\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.Payload",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.Properties",
+    "Definition": "[\"text\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.RedemptionDate",
+    "Definition": "[\"timestamp with time zone\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.ReferenceId",
+    "Definition": "[\"character varying(100)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.Status",
+    "Definition": "[\"character varying(50)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.Subject",
+    "Definition": "[\"character varying(400)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "OpenIddictTokens.Type",
+    "Definition": "[\"character varying(150)\", true, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "__EFMigrationsHistory.MigrationId",
+    "Definition": "[\"character varying(150)\", false, null, \"\"]"
+  },
+  {
+    "Kind": "column",
+    "Key": "__EFMigrationsHistory.ProductVersion",
+    "Definition": "[\"character varying(32)\", false, null, \"\"]"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetRoleClaims.FK_AspNetRoleClaims_AspNetRoles_RoleId",
+    "Definition": "FOREIGN KEY (\"RoleId\") REFERENCES \"AspNetRoles\"(\"Id\") ON DELETE CASCADE"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetRoleClaims.PK_AspNetRoleClaims",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetRoles.PK_AspNetRoles",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserClaims.FK_AspNetUserClaims_AspNetUsers_UserId",
+    "Definition": "FOREIGN KEY (\"UserId\") REFERENCES \"AspNetUsers\"(\"Id\") ON DELETE CASCADE"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserClaims.PK_AspNetUserClaims",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserLogins.FK_AspNetUserLogins_AspNetUsers_UserId",
+    "Definition": "FOREIGN KEY (\"UserId\") REFERENCES \"AspNetUsers\"(\"Id\") ON DELETE CASCADE"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserLogins.PK_AspNetUserLogins",
+    "Definition": "PRIMARY KEY (\"LoginProvider\", \"ProviderKey\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserRoles.FK_AspNetUserRoles_AspNetRoles_RoleId",
+    "Definition": "FOREIGN KEY (\"RoleId\") REFERENCES \"AspNetRoles\"(\"Id\") ON DELETE CASCADE"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserRoles.FK_AspNetUserRoles_AspNetUsers_UserId",
+    "Definition": "FOREIGN KEY (\"UserId\") REFERENCES \"AspNetUsers\"(\"Id\") ON DELETE CASCADE"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserRoles.PK_AspNetUserRoles",
+    "Definition": "PRIMARY KEY (\"UserId\", \"RoleId\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserTokens.FK_AspNetUserTokens_AspNetUsers_UserId",
+    "Definition": "FOREIGN KEY (\"UserId\") REFERENCES \"AspNetUsers\"(\"Id\") ON DELETE CASCADE"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUserTokens.PK_AspNetUserTokens",
+    "Definition": "PRIMARY KEY (\"UserId\", \"LoginProvider\", \"Name\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "AspNetUsers.PK_AspNetUsers",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictApplications.PK_OpenIddictApplications",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictAuthorizations.FK_OpenIddictAuthorizations_OpenIddictApplications_Application~",
+    "Definition": "FOREIGN KEY (\"ApplicationId\") REFERENCES \"OpenIddictApplications\"(\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictAuthorizations.PK_OpenIddictAuthorizations",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictScopes.PK_OpenIddictScopes",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictTokens.FK_OpenIddictTokens_OpenIddictApplications_ApplicationId",
+    "Definition": "FOREIGN KEY (\"ApplicationId\") REFERENCES \"OpenIddictApplications\"(\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictTokens.FK_OpenIddictTokens_OpenIddictAuthorizations_AuthorizationId",
+    "Definition": "FOREIGN KEY (\"AuthorizationId\") REFERENCES \"OpenIddictAuthorizations\"(\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "OpenIddictTokens.PK_OpenIddictTokens",
+    "Definition": "PRIMARY KEY (\"Id\")"
+  },
+  {
+    "Kind": "constraint",
+    "Key": "__EFMigrationsHistory.PK___EFMigrationsHistory",
+    "Definition": "PRIMARY KEY (\"MigrationId\")"
+  },
+  {
+    "Kind": "function",
+    "Key": "SearchUsers(character varying, integer)",
+    "Definition": "[\"sql\", \"SETOF \\\"AspNetUsers\\\"\", \"\\n    SELECT * FROM \\\"AspNetUsers\\\" WHERE lower(\\\"FirstName\\\") LIKE $1\\n        OR lower(\\\"LastName\\\") LIKE $1\\n        OR lower(\\\"FirstName\\\" || ' ' || \\\"LastName\\\") LIKE $1\\n        OR lower(\\\"LastName\\\" || ', ' || \\\"FirstName\\\") LIKE $1\\n        OR lower(\\\"Email\\\") LIKE $1\\n        ORDER BY \\\"FirstName\\\", \\\"LastName\\\" asc\\n        LIMIT $2;\\n\", \"NULL::integer\"]"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetRoleClaims.IX_AspNetRoleClaims_RoleId",
+    "Definition": "CREATE INDEX \"IX_AspNetRoleClaims_RoleId\" ON public.\"AspNetRoleClaims\" USING btree (\"RoleId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetRoleClaims.PK_AspNetRoleClaims",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetRoleClaims\" ON public.\"AspNetRoleClaims\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetRoles.PK_AspNetRoles",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetRoles\" ON public.\"AspNetRoles\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetRoles.RoleNameIndex",
+    "Definition": "CREATE UNIQUE INDEX \"RoleNameIndex\" ON public.\"AspNetRoles\" USING btree (\"NormalizedName\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserClaims.IX_AspNetUserClaims_UserId",
+    "Definition": "CREATE INDEX \"IX_AspNetUserClaims_UserId\" ON public.\"AspNetUserClaims\" USING btree (\"UserId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserClaims.PK_AspNetUserClaims",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetUserClaims\" ON public.\"AspNetUserClaims\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserLogins.IX_AspNetUserLogins_UserId",
+    "Definition": "CREATE INDEX \"IX_AspNetUserLogins_UserId\" ON public.\"AspNetUserLogins\" USING btree (\"UserId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserLogins.PK_AspNetUserLogins",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetUserLogins\" ON public.\"AspNetUserLogins\" USING btree (\"LoginProvider\", \"ProviderKey\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserRoles.IX_AspNetUserRoles_RoleId",
+    "Definition": "CREATE INDEX \"IX_AspNetUserRoles_RoleId\" ON public.\"AspNetUserRoles\" USING btree (\"RoleId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserRoles.PK_AspNetUserRoles",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetUserRoles\" ON public.\"AspNetUserRoles\" USING btree (\"UserId\", \"RoleId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUserTokens.PK_AspNetUserTokens",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetUserTokens\" ON public.\"AspNetUserTokens\" USING btree (\"UserId\", \"LoginProvider\", \"Name\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.AspNetUsers_lower_idx",
+    "Definition": "CREATE INDEX \"AspNetUsers_lower_idx\" ON public.\"AspNetUsers\" USING btree (lower((\"FirstName\")::text) varchar_pattern_ops)"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.AspNetUsers_lower_idx1",
+    "Definition": "CREATE INDEX \"AspNetUsers_lower_idx1\" ON public.\"AspNetUsers\" USING btree (lower((\"LastName\")::text) varchar_pattern_ops)"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.AspNetUsers_lower_idx2",
+    "Definition": "CREATE INDEX \"AspNetUsers_lower_idx2\" ON public.\"AspNetUsers\" USING btree (lower((((\"FirstName\")::text || ' '::text) || (\"LastName\")::text)) varchar_pattern_ops)"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.AspNetUsers_lower_idx3",
+    "Definition": "CREATE INDEX \"AspNetUsers_lower_idx3\" ON public.\"AspNetUsers\" USING btree (lower((((\"LastName\")::text || ', '::text) || (\"FirstName\")::text)) varchar_pattern_ops)"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.AspNetUsers_lower_idx4",
+    "Definition": "CREATE INDEX \"AspNetUsers_lower_idx4\" ON public.\"AspNetUsers\" USING btree (lower((\"Email\")::text) varchar_pattern_ops)"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.EmailIndex",
+    "Definition": "CREATE INDEX \"EmailIndex\" ON public.\"AspNetUsers\" USING btree (\"NormalizedEmail\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.PK_AspNetUsers",
+    "Definition": "CREATE UNIQUE INDEX \"PK_AspNetUsers\" ON public.\"AspNetUsers\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "AspNetUsers.UserNameIndex",
+    "Definition": "CREATE UNIQUE INDEX \"UserNameIndex\" ON public.\"AspNetUsers\" USING btree (\"NormalizedUserName\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictApplications.IX_OpenIddictApplications_ClientId",
+    "Definition": "CREATE UNIQUE INDEX \"IX_OpenIddictApplications_ClientId\" ON public.\"OpenIddictApplications\" USING btree (\"ClientId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictApplications.PK_OpenIddictApplications",
+    "Definition": "CREATE UNIQUE INDEX \"PK_OpenIddictApplications\" ON public.\"OpenIddictApplications\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictAuthorizations.IX_OpenIddictAuthorizations_ApplicationId_Status_Subject_Type",
+    "Definition": "CREATE INDEX \"IX_OpenIddictAuthorizations_ApplicationId_Status_Subject_Type\" ON public.\"OpenIddictAuthorizations\" USING btree (\"ApplicationId\", \"Status\", \"Subject\", \"Type\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictAuthorizations.PK_OpenIddictAuthorizations",
+    "Definition": "CREATE UNIQUE INDEX \"PK_OpenIddictAuthorizations\" ON public.\"OpenIddictAuthorizations\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictScopes.IX_OpenIddictScopes_Name",
+    "Definition": "CREATE UNIQUE INDEX \"IX_OpenIddictScopes_Name\" ON public.\"OpenIddictScopes\" USING btree (\"Name\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictScopes.PK_OpenIddictScopes",
+    "Definition": "CREATE UNIQUE INDEX \"PK_OpenIddictScopes\" ON public.\"OpenIddictScopes\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictTokens.IX_OpenIddictTokens_ApplicationId_Status_Subject_Type",
+    "Definition": "CREATE INDEX \"IX_OpenIddictTokens_ApplicationId_Status_Subject_Type\" ON public.\"OpenIddictTokens\" USING btree (\"ApplicationId\", \"Status\", \"Subject\", \"Type\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictTokens.IX_OpenIddictTokens_AuthorizationId",
+    "Definition": "CREATE INDEX \"IX_OpenIddictTokens_AuthorizationId\" ON public.\"OpenIddictTokens\" USING btree (\"AuthorizationId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictTokens.IX_OpenIddictTokens_ReferenceId",
+    "Definition": "CREATE UNIQUE INDEX \"IX_OpenIddictTokens_ReferenceId\" ON public.\"OpenIddictTokens\" USING btree (\"ReferenceId\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "OpenIddictTokens.PK_OpenIddictTokens",
+    "Definition": "CREATE UNIQUE INDEX \"PK_OpenIddictTokens\" ON public.\"OpenIddictTokens\" USING btree (\"Id\")"
+  },
+  {
+    "Kind": "index",
+    "Key": "__EFMigrationsHistory.PK___EFMigrationsHistory",
+    "Definition": "CREATE UNIQUE INDEX \"PK___EFMigrationsHistory\" ON public.\"__EFMigrationsHistory\" USING btree (\"MigrationId\")"
+  }
+]

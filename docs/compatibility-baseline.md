@@ -1,6 +1,6 @@
 # AIS2 compatibility baseline
 
-Baseline inspected from the adjacent AIS2 source on 2026-11-14. These are migration constraints and areas to verify in later steps, not claims that Step 1 implements them. AIS2 remains the reference and is not modified by AIS3.
+Baseline inspected from the adjacent AIS2 source and the current local PostgreSQL `ais2` database on 2026-11-14. Step 2 implements persistence compatibility; authentication and protocol behavior remain future review gates. AIS2 remains the reference and is not modified by AIS3.
 
 | Area                    | Existing behavior / source                                                                                                     | AIS3 acceptance requirement                                                                                                                            |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -16,7 +16,7 @@ Baseline inspected from the adjacent AIS2 source on 2026-11-14. These are migrat
 | Scopes and claims       | Scope-to-claim selection and access/identity-token destinations in authorization code                                          | Record token payload contracts and test against real client expectations before replacement.                                                           |
 | Database                | Existing SQL-managed schema and custom `SearchUsers` function in `Scripts/PopulateSchema.sql`                                  | Inventory schema/functions and data transformations before migrating; do not assume EF-generated schema is identical.                                  |
 | Mail                    | RabbitMQ publishes messages consumed by AliceMailService                                                                       | Preserve agreed message schema, queue/routing behavior, templates, and retries in the mail step. No mail is sent by Step 1.                            |
-| Console                 | Existing initialization/admin operations in `ConsoleManager`                                                                   | Rebuild administrative commands without referencing the Web project.                                                                                   |
+| Console                 | Existing initialization/admin operations in `ConsoleManager`                                                                   | Provide bootstrap as a command mode of the single application.                                                                                         |
 | Keys and sessions       | Signing/encryption certificates, Identity cookies, Data Protection keys, persisted OpenIddict data                             | Decide cutover behavior explicitly. Do not promise existing sessions/tokens survive without a tested key/storage migration.                            |
 
 ## Intentional improvements
@@ -25,4 +25,13 @@ Do not reproduce unsafe legacy mechanics. AIS3 must validate local return URLs o
 
 ## Decisions deferred to their review steps
 
-Database names/connection settings and bootstrap inputs belong to Step 2. Email/provider configuration, real clients/redirect URLs, key management, migration downtime, session continuity, staging hostnames, and deployment packaging need concrete configuration and testing at their respective steps. Step 1 embeds none of these values.
+Step 2 uses ignored appsettings.json files and explicit bootstrap command inputs. Email/provider configuration, real clients/redirect URLs, key management, migration downtime, session continuity, staging hostnames, and production deployment packaging need concrete configuration and testing at their respective steps.
+
+## Step 2 verified persistence baseline
+
+- A complete AIS2 dump restores directly into `ais3`, with no schema/data transformations. All 12 tables have matching row counts and content fingerprints before/after the AIS3 read checks. The source `ais2` is unchanged.
+- User IDs, password hashes, security/concurrency stamps, Identity claims/logins/tokens/roles, OpenIddict client secrets and JSON settings, scopes, authorizations, tokens, and historical migration metadata remain in their existing tables.
+- The live schema takes precedence over stale creation scripts: User.CreationTime has `DEFAULT CURRENT_TIMESTAMP`; authorization Type is varchar(50); token Type is varchar(150). The application maps these exact types, pins Identity schema version 1, and tolerates legacy SearchUsers objects in a restored dump. Fresh AIS3 databases defer custom search objects until that feature is designed.
+- A fresh database created from Scripts/CreateSchema.sql matches the AIS2 table/constraint/standard-index baseline. PopulateSchema.sql is empty; legacy search objects are excluded from fresh-schema requirements. Restored data/history are left unchanged, and runtime behavior does not depend on local EF migrations. Catalog comparison remains test-only.
+- A legacy Identity V3 password-hash fixture verifies successfully, and newly created OpenIddict client secrets round-trip through the store. Existing user passwords/client secrets were not supplied, so actual migrated sign-in and protocol flows remain Steps 3/4 and the migration rehearsal.
+- Persisted token rows being readable does not establish session/token continuity across cutover: signing/encryption and Data Protection keys must still be reviewed.
