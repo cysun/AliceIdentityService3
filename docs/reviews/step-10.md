@@ -1,6 +1,6 @@
 # Step 10 review — Claims and scopes
 
-Steps 1–9 are reviewed and committed; Step 9 is `eb775d0`. Step 10 is implemented and **uncommitted for manual review**. Stop before Step 11.
+Steps 1–10 are reviewed and committed; Step 9 is `eb775d0` and Step 10 is `5b469b0`. The checklist below records the Step 10 review. Current work is documented in the [Step 11 review](step-11.md).
 
 ## Delivered behavior
 
@@ -91,4 +91,4 @@ Coverage includes every new write's authorization/CSRF boundary, claim validatio
 
 Browser review used fictional data in a fresh temporary database: standard/custom scope presentation, successful scope creation/editing, deletion's disabled confirmation state and cancellation, claim assignment, own-session invalidation and persistence after a fresh sign-in. Deletion execution and concurrent cases were covered by automated HTTP/UI tests. Narrow viewport and broader keyboard checks remain in the manual checklist. Local screenshots are saved under ignored `artifacts/reviews/step-10-scopes.jpg` and `step-10-claims.jpg`.
 
-The verification server was stopped and port 7443 was confirmed free. Both temporary review/restore databases, the AIS2 dump and test logs were removed. No AIS2 or shared AIS3 database was modified. Step 11 has not started.
+The verification server was stopped and port 7443 was confirmed free. Both temporary review/restore databases, the AIS2 dump and test logs were removed. No AIS2 or shared AIS3 database was modified. Step 11 had not started at that handoff; see the current Step 11 review linked above.

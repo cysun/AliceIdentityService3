@@ -163,3 +163,29 @@ export type AdminScopePage = {
   page: number;
   pageSize: number;
 };
+
+export type AdminClient = {
+  id: string;
+  clientId: string | null;
+  displayName: string | null;
+  clientType: string | null;
+  hasSecret: boolean;
+  requirePkce: boolean;
+  scopes: string[];
+};
+export type AdminClientDetail = {
+  client: AdminClient;
+  applicationType: string | null;
+  consentType: string | null;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  allowRefreshTokens: boolean;
+  canManage: boolean;
+  version: string;
+};
+export type AdminClientPage = {
+  items: AdminClient[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};

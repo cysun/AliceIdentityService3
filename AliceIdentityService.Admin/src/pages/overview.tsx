@@ -193,7 +193,11 @@ export function Overview() {
         ) : (
           <div className="application-grid">
             {data.applications.map((app) => (
-              <div className="application-card" key={app.id}>
+              <Link
+                className="application-card"
+                key={app.id}
+                to={'/clients/' + encodeURIComponent(app.id)}
+              >
                 <span className="avatar" aria-hidden="true">
                   {initials(app.name)}
                 </span>
@@ -201,7 +205,7 @@ export function Overview() {
                   <strong>{app.name}</strong>
                   <small>{app.clientId}</small>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}

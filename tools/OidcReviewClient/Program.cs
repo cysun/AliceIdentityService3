@@ -25,14 +25,16 @@ builder.Services.AddAuthentication(options =>
 }).AddOpenIdConnect(options =>
 {
     options.Authority = builder.Configuration["Authority"] ?? "https://localhost:7443/";
-    options.ClientId = "ais3-review";
+    options.ClientId = builder.Configuration["ClientId"] ?? "ais3-review";
+    options.ClientSecret = builder.Configuration["ClientSecret"];
     options.ResponseType = "code";
     options.UsePkce = true;
     options.SaveTokens = true;
     options.MapInboundClaims = false;
     options.GetClaimsFromUserInfoEndpoint = true;
     options.Scope.Clear();
-    foreach (var scope in new[] { "openid", "profile", "email", "offline_access" }) options.Scope.Add(scope);
+    foreach (var scope in (builder.Configuration["RequestedScopes"] ?? "openid profile email offline_access")
+        .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) options.Scope.Add(scope);
     options.TokenValidationParameters.NameClaimType = "name";
 });
 builder.Services.AddAuthorization();
@@ -73,7 +75,8 @@ app.MapPost("/refresh", async (HttpContext context, IAntiforgery antiforgery, IO
     {
         ["grant_type"] = "refresh_token",
         ["refresh_token"] = refresh,
-        ["client_id"] = settings.ClientId!
+        ["client_id"] = settings.ClientId!,
+        ["client_secret"] = settings.ClientSecret ?? ""
     }), context.RequestAborted);
     if (!response.IsSuccessStatusCode) return Results.BadRequest("Token renewal was rejected by AIS3. Sign out and sign in again.");
     var tokens = await response.Content.ReadFromJsonAsync<JsonElement>(context.RequestAborted);

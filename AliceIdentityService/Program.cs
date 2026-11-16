@@ -22,6 +22,7 @@ builder.Services.AddScoped<AdminUserService>();
 builder.Services.AddScoped<AdminUserMutationService>();
 builder.Services.AddScoped<AdminWriteGuard>();
 builder.Services.AddScoped<AdminScopeService>();
+builder.Services.AddScoped<AdminClientService>();
 if (!bootstrap && !reviewClient) builder.Services.AddAisOpenIddict(builder.Configuration, builder.Environment);
 // The Vite runner binds only HTTP on the backend, so endpoint discovery alone
 // cannot determine the public HTTPS port. Keep redirects active in that mode too.

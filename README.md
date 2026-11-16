@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–9 are approved and committed (Step 9: `eb775d0`). Step 10 is implemented and uncommitted for review. Step 11 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment and scope definitions use the database.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–10 are approved and committed (Step 10: `5b469b0`). Step 11 is implemented and uncommitted for review. Step 12 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database.
 
 ## Projects
 
@@ -119,7 +119,7 @@ Details show names, email/confirmation, creation time, administrator membership,
 
 ## Administrative account operations
 
-Step 9 connects the existing Base UI dialogs to protected write endpoints. Administrators can create confirmed ordinary accounts, edit first/last/screen names and email confirmation, reset passwords, lock for one hour/24 hours/until unlocked, clear lockout and failed attempts, and permanently delete accounts. Email addresses stay read-only after creation; clients and two-factor configuration keep their later review gates. Account creation and administrator password reset send no email, matching AIS2's administrative workflow.
+Step 9 connects the existing Base UI dialogs to protected write endpoints. Administrators can create confirmed ordinary accounts, edit first/last/screen names and email confirmation, reset passwords, lock for one hour/24 hours/until unlocked, clear lockout and failed attempts, and permanently delete accounts. Email addresses stay read-only after creation; two-factor configuration retains its later review gate. Account creation and administrator password reset send no email, matching AIS2's administrative workflow.
 
 Every write requires the current administrator session and an antiforgery token. Forms carry an opaque version from the latest detail read; stale edits return 409 and require reload. Names-only updates retain sessions. Confirmation changes, password resets, lock/unlock and deletion invalidate AIS cookies and OIDC codes/refresh tokens, revoke persisted tokens/authorizations, and leave independently validated JWTs subject to their existing expiry. Identity writes and revocation share a transaction. The currently signed-in administrator cannot lock/delete/unconfirm their own account; an own-password reset ends their session.
 
@@ -133,11 +133,21 @@ Step 10 connects **Users → Claims** and `/admin/scopes`. Claim assignment adds
 
 Claim changes rotate the security stamp and revoke subject tokens/authorizations in the same transaction. The account must sign in again, including the current administrator when editing their own claims. Earlier confirmation/recovery links also become invalid. Existing independently validated JWTs retain their claims until expiry.
 
-Scopes use AIS2's OpenIddict `Properties["claims"]` array and resource identifiers. The directory supports server-side search and paging. Custom scopes can be created, edited and deleted; names stay fixed after creation. Display name, description, claim types and resources are editable. Standard scopes are read-only because their token mappings are fixed by the existing protocol contract. Deletion requires the exact scope name and is refused while a registered client permits the scope or a valid authorization references it. Client permission editing remains Step 11.
+Scopes use AIS2's OpenIddict `Properties["claims"]` array and resource identifiers. The directory supports server-side search and paging. Custom scopes can be created, edited and deleted; names stay fixed after creation. Display name, description, claim types and resources are editable. Standard scopes are read-only because their token mappings are fixed by the existing protocol contract. Deletion requires the exact scope name and is refused while a registered client permits the scope or a valid authorization references it. Client permission editing is available in Step 11.
 
 Scope edits preserve unrelated imported properties and localized names/descriptions. They apply on subsequent token issuance/refresh and userinfo requests; they do not revoke existing grants or alter already-issued JWTs. Only matching user claims are released when the client is permitted to request the scope and the scope is granted. Resources become access-token audiences. Private security/protocol claims never receive public token destinations, including when imported definitions list them. Standard scope claim destinations remain unchanged.
 
-All writes use the existing administrator, antiforgery, edit-version and serialized actor checks. Success logs contain actor ID, operation and target ID, not claim values. No configuration, dependencies, SQL or schema changes are needed. See the [Step 10 review](docs/reviews/step-10.md) for the API, limits, token behavior and manual testing instructions. **Stop for manual review before Step 11.**
+All writes use the existing administrator, antiforgery, edit-version and serialized actor checks. Success logs contain actor ID, operation and target ID, not claim values. No configuration, dependencies, SQL or schema changes are needed. See the [Step 10 review](docs/reviews/step-10.md) for the API, limits, token behavior and manual testing instructions.
+
+## Clients
+
+Step 11 connects `/admin/clients` to searchable application registrations and detail pages. Administrators can register public or confidential authorization-code clients, edit display names, exact redirect/post-logout URLs, allowed scopes, refresh-token permission and PKCE, rotate secrets or convert client type, and delete registrations. Client IDs are fixed after creation. Public clients require PKCE when saved; confidential clients can make it optional. New URLs require HTTPS, except HTTP localhost/loopback callbacks; unchanged AIS2 callbacks remain supported.
+
+Secrets are masked in the form, can be generated locally in the browser, and must be saved privately before submission. OpenIddict hashes them; reads expose only whether a secret is configured. Ordinary settings edits preserve the hash and unrelated imported metadata. Imported configurations outside the supported public/confidential, implicit-consent authorization-code profile have read-only settings.
+
+Changing redirects, scopes, refresh permission, PKCE or credentials revokes that client's persisted codes, refresh tokens and authorizations transactionally. Display-name-only changes retain grants and all client operations retain AIS user cookies. Deletion removes the registration and associated protocol rows after exact-ID confirmation. Existing JWTs and application-local sessions may remain valid until expiry. Writes use the existing administrator/CSRF/concurrency protections. No SQL, schema, dependencies or application configuration change is required.
+
+See the [Step 11 review](docs/reviews/step-11.md) for limits, imported-client behavior, testing instructions and the configurable public/confidential OIDC review client. **Stop for manual review before Step 12.**
 
 ## Configuration and database
 
@@ -165,7 +175,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 10 checklist](docs/reviews/step-10.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 11 checklist](docs/reviews/step-11.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
 
 To run the built UI using ASP.NET Core alone:
 
@@ -174,6 +184,6 @@ npm run build --prefix AliceIdentityService.Admin
 dotnet run --project AliceIdentityService
 ```
 
-Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory, details, account operations, claims and scopes are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
+Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory, details, account operations, claims, scopes and clients are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 10 review checklist](docs/reviews/step-10.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 11.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 11 review checklist](docs/reviews/step-11.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 12.

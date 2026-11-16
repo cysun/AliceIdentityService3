@@ -94,7 +94,7 @@ public sealed class AdminTests
             Assert.Equal(ticket.Properties.ExpiresUtc, json.GetProperty("expiresAt").GetDateTimeOffset());
             Assert.Equal(lifetime, json.GetProperty("expiresAt").GetDateTimeOffset() - ticket.Properties.IssuedUtc);
             Assert.Equal(client.Factory.Clock.GetUtcNow(), json.GetProperty("serverTime").GetDateTimeOffset());
-            Assert.Equal(10, json.GetProperty("application").GetProperty("implementationStep").GetInt32());
+            Assert.Equal(11, json.GetProperty("application").GetProperty("implementationStep").GetInt32());
             client.Factory.Clock.Advance(lifetime);
             foreach (var endpoint in Endpoints) Assert.Equal(HttpStatusCode.Unauthorized, (await browser.GetAsync(endpoint)).StatusCode);
         }

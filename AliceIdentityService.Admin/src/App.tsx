@@ -20,6 +20,12 @@ import { UserDetail, UsersPage } from '@/pages/users';
 const ComponentsPage = lazy(() =>
   import('@/pages/components').then((module) => ({ default: module.ComponentsPage })),
 );
+const ClientsPage = lazy(() =>
+  import('@/pages/clients').then((module) => ({ default: module.ClientsPage })),
+);
+const ClientDetail = lazy(() =>
+  import('@/pages/clients').then((module) => ({ default: module.ClientDetail })),
+);
 const navigation = [
   { path: '/', label: 'Overview', icon: LayoutDashboard },
   { path: '/users', label: 'Users', icon: Users },
@@ -27,23 +33,6 @@ const navigation = [
   { path: '/scopes', label: 'Scopes', icon: ShieldCheck },
   { path: '/components', label: 'Components', icon: Blocks },
 ];
-function PlannedPage({ title, step }: { title: string; step: number }) {
-  return (
-    <>
-      <div className="page-heading">
-        <div>
-          <h1>{title}</h1>
-          <p>Application access, managed in one place.</p>
-        </div>
-      </div>
-      <section className="panel detail-panel">
-        <h2>Coming in Step {step}</h2>
-        <p>{title} management is reserved for its own implementation and review step.</p>
-        <Link to="/components">Explore the component preview →</Link>
-      </section>
-    </>
-  );
-}
 export function AdminShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { session } = useAdminSession();
@@ -121,8 +110,8 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 10 review</strong> · Claims and scopes are live. Client management remains
-            reserved for Step 11.
+            <strong>Step 11 review</strong> · Client management is live. Mail operations remain
+            reserved for Step 12.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>
@@ -133,7 +122,22 @@ export function AdminShell() {
             <Route path="/" element={<Overview />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/:id" element={<UserDetail />} />
-            <Route path="/clients" element={<PlannedPage title="Clients" step={11} />} />
+            <Route
+              path="/clients"
+              element={
+                <Suspense fallback={<p>Loading clients…</p>}>
+                  <ClientsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/clients/:id"
+              element={
+                <Suspense fallback={<p>Loading client…</p>}>
+                  <ClientDetail />
+                </Suspense>
+              }
+            />
             <Route path="/scopes" element={<ScopesPage />} />
             <Route path="/scopes/:id" element={<ScopeDetail />} />
             <Route
