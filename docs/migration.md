@@ -1,6 +1,6 @@
 # AIS2 migration rehearsal
 
-Step 14 rehearses a direct PostgreSQL dump/restore into isolated databases. It does not cut over production, change AIS2, convert account data, or share a database between running AIS2/AIS3 writers. Steps 1–13 are approved and committed; Step 13 is `c3112fa`. Leave Step 14 uncommitted for review before Step 15.
+Step 14 rehearses a direct PostgreSQL dump/restore into isolated databases. It does not cut over production, change AIS2, convert account data, or share a database between running AIS2/AIS3 writers. Steps 1–14 are reviewed and committed; Step 14 is `f7c59f8`. The [Step 15 runbook](cutover.md) prepares the release and instructions for manual deployment.
 
 ## Data contract
 
@@ -36,7 +36,7 @@ The synthetic test persists legacy-compatible Identity V3 hashes, administrators
 
 ## Session and key policy for review
 
-The proposed Step 15 policy is a planned reauthentication boundary. Preserve accounts, passwords, client IDs/secrets, scopes and all stored protocol records, but do not promise AIS2 browser sessions, account links or old grants will continue. No bulk deletion, revocation SQL or password reset is performed in this step.
+The reviewed Step 14 policy for Step 15 is a planned reauthentication boundary. Preserve accounts, passwords, client IDs/secrets, scopes and all stored protocol records, but do not promise AIS2 browser sessions, account links or old grants will continue. No bulk deletion, revocation SQL or password reset is performed in this step.
 
 | State | Cutover behavior to review |
 | --- | --- |
@@ -48,7 +48,7 @@ The proposed Step 15 policy is a planned reauthentication boundary. Preserve acc
 
 For this policy, provision a **new AIS3-owned** `Application:CertificateFolder` and let AIS3 generate its two passwordless certificates and `keys` subfolder. Preserve AIS2's original certificate folder and configuration for rollback; never point the two applications at the same writable certificate directory. There is no KeyRingPath setting. Reusing AIS2 certificates is technically supported by hosting, but would be a separately reviewed continuity choice, not evidence of session compatibility. Keeping the existing public issuer at production cutover avoids reconfiguring client authorities; staging uses its own issuer and synthetic clients. Confirm discovery/JWKS refresh behavior with each actual client/API before changing public keys.
 
-This policy is proposed for manual approval, not applied to any deployed service. TrustedProxies still defaults to `127.0.0.1` and `::1`. AIS3 still only publishes mail to RabbitMQ; delivery and any handling of previously queued AIS2 messages belong to AliceMailService.
+This policy was reviewed with Step 14; it has not been applied to a deployed service by this work. TrustedProxies still defaults to `127.0.0.1` and `::1`. AIS3 still only publishes mail to RabbitMQ; delivery and any handling of previously queued AIS2 messages belong to AliceMailService.
 
 ## Manual migrated-account/client review
 
@@ -67,4 +67,4 @@ Before public AIS3 writes are admitted, rollback can discard the candidate and r
 
 After public AIS3 writes are admitted, restoring the pre-cutover AIS2 archive would lose registrations/password changes/revocations and could revive old security state. Stop traffic and writers, preserve the current database and logs, and review a forward fix or a verified AIS2 code rollback against the **current** data. Do not silently restore an old snapshot or attempt dual writes. Returning to AIS2's original keys may revive old protocol state too; review that explicitly. Step 14 makes no incompatible schema changes, but that alone does not certify AIS2 behavior after AIS3 security changes.
 
-Step 15 requires approval of this session policy, the actual client matrix, maintenance/write-freeze and JWT drain windows, Linux staging/browser checks, verified role/locale/TLS/backup restore procedures, release identifiers and rollback authority. No production migration, traffic change, certificate replacement or user communication is authorized by running Step 14 tests.
+The manual Step 15 deployment record retains the approved session policy and client matrix, and records maintenance/write-freeze and JWT drain windows, Linux staging/browser checks, verified role/locale/TLS/backup restore procedures, release identifiers and rollback authority. No production migration, traffic change, certificate replacement or user communication is authorized by running Step 14 tests.

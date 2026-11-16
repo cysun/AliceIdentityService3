@@ -231,24 +231,6 @@
 .system-info {
   font-size: 11px;
 }
-.preview-note {
-  background: var(--ais-tint);
-  color: var(--ais-link);
-  padding: 10px 32px;
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 11px;
-}
-.preview-note > div {
-  display: flex;
-  gap: 16px;
-  white-space: nowrap;
-}
-.preview-note a:hover {
-  text-decoration: underline;
-}
 .main-content {
   padding: 34px 32px;
   width: 100%;
@@ -273,13 +255,6 @@ h1 {
   color: var(--ais-muted);
   margin: 7px 0 0;
   font-size: 13px;
-}
-.sample-label {
-  border: 1px solid var(--ais-border);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  color: var(--ais-muted);
 }
 .stats-grid {
   display: grid;
@@ -564,46 +539,6 @@ h2 {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-.component-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-.sample-form {
-  display: grid;
-  gap: 20px;
-}
-.sample-form label {
-  margin-bottom: 8px;
-}
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  align-items: center;
-}
-.field-error {
-  color: var(--destructive);
-  font-size: 12px;
-  margin-top: 6px;
-}
-.form-result {
-  color: var(--ais-muted);
-  font-size: 12px;
-  min-height: 18px;
-}
-.component-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 24px;
-}
-.checkbox-sample {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-}
 .mobile-menu {
   display: none;
 }
@@ -646,21 +581,12 @@ h2 {
   .main-content {
     padding: 24px 20px;
   }
-  .topbar,
-  .preview-note {
+  .topbar {
     padding-left: 20px;
     padding-right: 20px;
   }
   .system-info {
     display: none;
-  }
-  .preview-note {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .component-grid {
-    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 640px) {
@@ -697,9 +623,6 @@ h2 {
   }
   .page-heading {
     align-items: flex-start;
-  }
-  .page-heading .sample-label {
-    display: none;
   }
   h1 {
     font-size: 24px;

@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–13 are approved and committed (Step 13: `c3112fa`). Step 14 is implemented and uncommitted for review. Step 15 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and RabbitMQ mail publication are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database. Staging hosting configuration, persistent keys and request hardening are approved. Step 14 adds an isolated AIS2 dump/restore rehearsal and validation reports.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–14 are approved and committed (Step 14: `f7c59f8`). Step 15 prepares the release and instructions for manual deployment; its changes are uncommitted for review. Production deployment has not been performed.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and RabbitMQ mail publication are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database. Staging hosting configuration, persistent keys and request hardening are approved. Step 14 adds an isolated AIS2 dump/restore rehearsal and validation reports.
 
 ## Projects
 
@@ -41,7 +41,7 @@ npm run dev --prefix AliceIdentityService.Admin
 
 Open https://localhost:7443/Account/Login or https://localhost:7443/admin/. The dev command starts both ASP.NET Core and Vite with reload support; Ctrl+C stops both. Initialize a fresh database with the SQL scripts below, or restore an AIS2 dump. Sign in with a confirmed existing account; the `ais_admin` claim is required for administration. `/Account` (also `/Account/Profile`) shows your profile, editable names, password-change link, and sign-out button. Vite checks access with the same backend policy before serving the admin UI.
 
-Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. The overview at `/admin/` and user directory at `/admin/users` are live; `/admin/components` remains a local component preview. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
+Registration at `/Account/Register` and recovery at `/Account/ForgotPassword` are functional. The overview at `/admin/` and user directory at `/admin/users` are live. Compact login now comes from a validated OIDC authorization request; `preview` and `app` query parameters cannot establish that context. See the [Step 4 review](docs/reviews/step-4.md) for a working test client.
 
 ## Account sessions
 
@@ -51,7 +51,7 @@ The `__Host-AIS3.Session` cookie is Secure, HttpOnly, SameSite=Lax, host-only, a
 
 Login and logout POSTs require antiforgery tokens. GET `/Account/Logout` only asks for confirmation. Return URLs must be local. The admin namespace, including built static assets, requires the existing AIS2 `ais_admin` claim. `/api/system/info` requires the same policy and returns 401/403 for unauthorized requests. The React shell loads the current administrator from `/api/admin/session` before displaying protected routes. Sign-out uses the existing Razor confirmation and antiforgery-protected POST.
 
-Use HTTPS, including in development. Development HTTP redirects to port 7443 by default (override with `HTTPS_PORT`); health endpoints remain accessible over HTTP for local probes. Forwarded headers trust only `127.0.0.1` and `::1` by default; configure `Hosting:TrustedProxies` only to replace these defaults with explicit proxy IPs. Staging/Production redirect to the configured public issuer port. Data Protection uses local defaults in development and a persistent encrypted key ring in deployed environments. AIS3 uses its own cookie name and does not import AIS2 browser sessions. Step 14 proposes a planned reauthentication boundary; see the [migration policy](docs/migration.md#session-and-key-policy-for-review).
+Use HTTPS, including in development. Development HTTP redirects to port 7443 by default (override with `HTTPS_PORT`); health endpoints remain accessible over HTTP for local probes. Forwarded headers trust only `127.0.0.1` and `::1` by default; configure `Hosting:TrustedProxies` only to replace these defaults with explicit proxy IPs. Staging/Production redirect to the configured public issuer port. Data Protection uses local defaults in development and a persistent encrypted key ring in deployed environments. AIS3 uses its own cookie name and does not import AIS2 browser sessions. The reviewed Step 14 policy uses a planned reauthentication boundary; see the [migration policy](docs/migration.md#session-and-key-policy-for-review).
 
 ## OIDC
 
@@ -99,7 +99,7 @@ The session response contains only the current user's ID, email and names, the o
 
 The overview uses one consistent database snapshot for total users, registered applications, unconfirmed emails, distinct accounts assigned `ais_admin`, and enabled/unexpired lockouts. Administrator counts include assigned claims regardless of their value or the account's current lockout/confirmation state. Recent registrations show at most five accounts, ordered by creation time descending and ID ascending for ties. Application cards show at most six registered clients, ordered by display name (falling back to client ID/record ID). **Refresh** updates the snapshot; session polling does not refresh the overview. A registered client is not a measurement of online activity.
 
-Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows open live user details, and attention links open filtered user lists. Client links open their live detail pages, and component demonstrations remain local previews.
+Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows open live user details, and attention links open filtered user lists. Client links open their live detail pages.
 
 See the [Step 7 review instructions](docs/reviews/step-7.md) for counts, session expiry/sign-out, access denial, failure recovery, and regression checks. Step 7 itself needed no schema changes. Step 8 adds the search objects described below.
 
@@ -169,7 +169,13 @@ The [deployment guide](docs/deployment.md) covers private configuration, the sta
 
 Step 14 adds opt-in dump/restore tests within the existing test project. A read-only AIS2 snapshot is restored into disposable databases; all public table counts/content fingerprints, sequence state and the shared schema are compared. The existing PopulateSchema.sql is applied without running CreateSchema.sql or bootstrap. Separate imported fixtures exercise legacy password hashes, administrator access and public/confidential OIDC clients. Reports contain aggregate evidence without account rows or secrets.
 
-The [migration guide](docs/migration.md) covers commands, private reports, real-client review, the proposed reauthentication policy and the rollback boundary. The [Step 14 review](docs/reviews/step-14.md) records verification and manual testing instructions. No source AIS2 data, private configuration, certificates, SQL scripts or deployed services are changed. **Stop for manual review before Step 15.**
+The [migration guide](docs/migration.md) covers commands, private reports, real-client review, the reviewed reauthentication policy and the rollback boundary. The [Step 14 review](docs/reviews/step-14.md) records verification and manual testing instructions. No source AIS2 data, private configuration, certificates, SQL scripts or deployed services are changed. Step 14 is approved and committed as `f7c59f8`.
+
+## Manual production deployment
+
+Step 15 prepares a portable framework-dependent release bundle, a tracked Production settings sample, a systemd Production override, and a read-only check of the actual final restored database. Implementation-step labels, review banners and preview-navigation links have been removed from account and administration pages. The administration header retains the application version, `3.0.0-rc.1`. The application still consists of one ASP.NET Core backend with Razor account pages and React/Base UI administration.
+
+Use the [manual cutover runbook](docs/cutover.md) for packaging, configuration, final backup/restore, pre-write data validation, smoke checks, traffic admission, recovery and operational handoff. The [Step 15 review](docs/reviews/step-15.md) gives verification commands and results. **This step prepares manual deployment only; no production service, data or traffic has been changed.** Leave the changes uncommitted for review. Private settings/migrations remain ignored and both SQL scripts retain their existing roles.
 
 ## Configuration and database
 
@@ -208,4 +214,4 @@ dotnet run --project AliceIdentityService
 
 Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory, details, account operations, claims, scopes and clients are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-Staging/Production hosting requires the explicit configuration documented above. See the [Step 13 review checklist](docs/reviews/step-13.md) and [implementation plan](docs/implementation-plan.md). See the [Step 14 review](docs/reviews/step-14.md); stop for manual review before implementing Step 15.
+Staging/Production hosting requires the explicit configuration documented above. See the [Step 13 review checklist](docs/reviews/step-13.md) and [implementation plan](docs/implementation-plan.md). Use the [Step 15 review](docs/reviews/step-15.md) and [manual cutover runbook](docs/cutover.md) before deployment.

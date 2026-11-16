@@ -3,7 +3,6 @@ import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom';
 import {
   AppWindow,
   ArrowUpRight,
-  Blocks,
   Fingerprint,
   LayoutDashboard,
   Menu,
@@ -17,9 +16,6 @@ import { useAdminSession } from '@/lib/admin-context';
 import { initials } from '@/lib/person';
 import { ScopeDetail, ScopesPage } from '@/pages/scopes';
 import { UserDetail, UsersPage } from '@/pages/users';
-const ComponentsPage = lazy(() =>
-  import('@/pages/components').then((module) => ({ default: module.ComponentsPage })),
-);
 const ClientsPage = lazy(() =>
   import('@/pages/clients').then((module) => ({ default: module.ClientsPage })),
 );
@@ -31,7 +27,6 @@ const navigation = [
   { path: '/users', label: 'Users', icon: Users },
   { path: '/clients', label: 'Clients', icon: AppWindow },
   { path: '/scopes', label: 'Scopes', icon: ShieldCheck },
-  { path: '/components', label: 'Components', icon: Blocks },
 ];
 export function AdminShell() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -104,19 +99,8 @@ export function AdminShell() {
               <strong>Alice Identity Service</strong>
             </span>
           </div>
-          <span className="system-info">
-            AIS3 {session.application.version} · Step {session.application.implementationStep}
-          </span>
+          <span className="system-info">AIS3 {session.application.version}</span>
         </header>
-        <div className="preview-note">
-          <span>
-            <strong>Step 14 review</strong> · AIS2 migration rehearsal is ready for review.
-            Production cutover remains reserved for Step 15.
-          </span>
-          <div>
-            <a href="/Account/Login">Direct login</a>
-          </div>
-        </div>
         <main id="main" className="main-content">
           <Routes>
             <Route path="/" element={<Overview />} />
@@ -140,14 +124,6 @@ export function AdminShell() {
             />
             <Route path="/scopes" element={<ScopesPage />} />
             <Route path="/scopes/:id" element={<ScopeDetail />} />
-            <Route
-              path="/components"
-              element={
-                <Suspense fallback={<p>Loading component preview…</p>}>
-                  <ComponentsPage />
-                </Suspense>
-              }
-            />
             <Route
               path="*"
               element={

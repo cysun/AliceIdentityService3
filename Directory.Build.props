@@ -5,7 +5,7 @@
     <BaseIntermediateOutputPath>obj/</BaseIntermediateOutputPath>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>3.0.0</Version>
+    <Version>3.0.0-rc.1</Version>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <!-- These projects do not use optional mobile or WASM SDK workloads. -->
     <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>

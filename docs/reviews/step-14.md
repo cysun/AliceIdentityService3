@@ -1,6 +1,6 @@
 # Step 14 review — AIS2 migration rehearsal
 
-Steps 1–13 are reviewed and committed; Step 13 is `c3112fa`. Step 14 is implemented and **uncommitted for manual review**. Stop before Step 15. Historical Step 13 status text has been corrected.
+Steps 1–14 are reviewed and committed. Step 14 is committed as `f7c59f8`; its manual review gate is complete. Step 15 is authorized as release preparation and manual deployment instructions; see the [Step 15 review](step-15.md).
 
 ## Delivered behavior
 
@@ -8,7 +8,7 @@ The existing test project now rehearses a read-only AIS2 snapshot through pg_dum
 
 A separate dump/restore fixture exercises legacy-compatible Identity hashes, administrator access, account-state denial, public S256 and confidential client code exchange, signed claims, userinfo, refresh and logout. It checks a pre-write hash/stamp match and Identity's expected rehash/stamp rotation after sign-in. Failure tests detect equal-count credential changes, sequence drift and a missing index, and reject an initialized restore target. Another protocol test rejects missing-`auth_time` legacy-style grants even when cryptographic keys match. These are synthetic compatibility tests, not an assertion that deployed AIS2 credentials or old tokens were exercised.
 
-The [migration guide](../migration.md) documents the reproducible commands, report interpretation, proposed reauthentication policy, manual client matrix and rollback boundaries. The proposal uses a new AIS3-owned certificate folder while retaining AIS2's keys/configuration for rollback. No keys are copied/replaced by this step. The exact public issuer, maintenance/drain window and deployed-client approvals remain Step 15 inputs after manual review.
+The [migration guide](../migration.md) documents the reproducible commands, report interpretation, proposed reauthentication policy, manual client matrix and rollback boundaries. The reviewed policy uses a new AIS3-owned certificate folder while retaining AIS2's keys/configuration for rollback. No keys are copied/replaced by this step. The exact public issuer, maintenance/drain window and deployed-client approvals remain Step 15 inputs after manual review.
 
 The single backend, Razor account pages, React/Base UI administration, database mappings, mail publication boundary and deployment configuration are preserved. UI changes are limited to the step banner/version. No schema SQL, migration source, private settings, configuration samples, dependency versions or AIS2 files change.
 
@@ -39,7 +39,7 @@ For the full backend suite, also set `AIS3_TEST_RESTORED_CONNECTION` to a **sepa
 2. Use an isolated restored database and the existing staging deployment configuration. Inspect all accounts/claims/scopes/clients in the approved UI. With authorized credentials, review ordinary/admin sign-in, unconfirmed/locked denial, profile/search, recovery and confirmation. Do not mutate the source to obtain test passwords.
 3. Complete the [migrated client checklist](../migration.md#manual-migrated-accountclient-review) for every deployed client. Verify actual secrets, callback/logout addresses, scopes/resources/claims and token consumers, including public S256 and confidential clients. Record private outcomes; do not paste passwords, secrets or tokens into this review.
 4. Rehearse the retained AIS2 release against a separate rollback copy with its original keys/configuration. The automatic second restore verifies data recovery only. Approve a rollback boundary that does not discard registrations/password changes/revocations after public AIS3 writes.
-5. Retain the Step 13 Linux Nginx/systemd, TLS, service-permission and browser checks. Review/report files are not deployment approval. Stop verification servers, leave Step 14 uncommitted, and approve it before Step 15.
+5. Retain the Step 13 Linux Nginx/systemd, TLS, service-permission and browser checks. Review/report files are not deployment approval. This Step 14 review gate is complete; retain the checklist as migration evidence.
 
 ## Verification record
 
@@ -62,4 +62,4 @@ The full backend run exercised **153 tests with none skipped**: 152 passed and o
 
 The publish artifact is `artifacts/step-14-review`; it includes the built UI and six mail templates, and excludes private settings, certificates, migrations and test tooling. The latest successful `ais2-*.json` and `synthetic-*.json` reports are in ignored `.dev/migration-review`, with file mode `0600`. Temporary dumps and databases were removed; local verification ports 7443 and 9443 have no listeners. TestServer hosts were disposed, and no external verification server was started. Existing PostgreSQL/RabbitMQ services were left running. AIS2 source files/data and private application settings were left unchanged; both SQL scripts and tracked configuration samples are unchanged.
 
-No remote deployment, real-client credential test, mailbox delivery or public traffic switch is included. Manual review remains required before Step 15.
+No remote deployment, real-client credential test, mailbox delivery or public traffic switch is included. Step 14 was subsequently reviewed and committed as `f7c59f8`; the production deployment remains a manual Step 15 operation.

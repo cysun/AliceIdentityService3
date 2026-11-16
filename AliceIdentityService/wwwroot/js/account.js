@@ -8,8 +8,3 @@ document.querySelectorAll('.password-toggle').forEach((button) => {
     button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
   });
 });
-document.querySelectorAll('[data-preview-action]').forEach((button) => {
-  button.addEventListener('click', () => {
-    document.querySelector('.preview-result').hidden = false;
-  });
-});

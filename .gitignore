@@ -7,6 +7,7 @@ artifacts/
 coverage/
 TestResults/
 *.tsbuildinfo
+__pycache__/
 # Certificates and secrets
 .dev/
 .env

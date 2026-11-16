@@ -32,25 +32,10 @@ a:focus-visible {
   outline: 3px solid var(--ais-link);
   outline-offset: 3px;
 }
-.preview-banner {
-  background: var(--ais-tint);
-  border-bottom: 1px solid var(--ais-border);
-  padding: 10px 24px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-.preview-banner nav {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
 .account-shell {
   max-width: 1180px;
   margin: 0 auto;
-  min-height: calc(100svh - 70px);
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
 }
@@ -306,13 +291,6 @@ input::placeholder {
   justify-content: center;
   padding-top: 28px;
 }
-.preview-result {
-  color: var(--ais-link);
-  background: var(--ais-tint);
-  border-radius: 8px;
-  padding: 12px;
-  font-size: 13px;
-}
 .validation-errors {
   color: var(--ais-foreground);
   border-left: 3px solid var(--ais-link);
@@ -365,9 +343,6 @@ input::placeholder {
   }
 }
 @media (max-width: 650px) {
-  .preview-banner {
-    padding: 10px 16px;
-  }
   .account-header {
     padding: 22px;
   }
