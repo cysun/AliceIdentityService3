@@ -804,3 +804,56 @@ h2 {
   overflow-wrap: anywhere;
   min-width: 0;
 }
+
+.admin-user-dialog {
+  max-width: min(520px, calc(100% - 2rem));
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.admin-user-form fieldset {
+  display: grid;
+  gap: 16px;
+  margin: 18px 0;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.admin-user-form label:not(.confirmation-check) {
+  display: grid;
+  gap: 6px;
+  align-items: start;
+}
+.admin-user-form .confirmation-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.operation-target {
+  overflow-wrap: anywhere;
+  color: var(--ais-muted);
+  margin: 0;
+}
+.operation-target strong {
+  color: var(--ais-foreground);
+}
+.operation-errors {
+  color: var(--destructive);
+  margin-top: 16px;
+}
+.operation-errors p {
+  margin-bottom: 8px;
+}
+.operation-notice {
+  color: var(--ais-link);
+}
+.security-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+.form-hint {
+  color: var(--ais-muted);
+  font-size: 12px;
+  margin: 0;
+}

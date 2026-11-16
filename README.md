@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–7 are approved and committed. Step 8 is implemented and uncommitted for review. Step 9 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, and read-only details use the database.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–8 are approved and committed. Step 9 is implemented and uncommitted for review. Step 10 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details and administrative account operations use the database.
 
 ## Projects
 
@@ -113,9 +113,19 @@ Search, status, sorting, page, and page size are stored in the URL. Sorting and 
 
 Confirmed/Unconfirmed filter the email-confirmation flag, including accounts that are locked; Locked requires enabled, unexpired lockout. The badge gives active lockout precedence over email-confirmation status. These definitions match the overview's attention counts. Counts and page results share a repeatable-read snapshot. Refresh explicitly reloads the current view.
 
-Details show names, email/confirmation, creation time, administrator membership, stored claim type/value pairs, and password-presence/two-factor/lockout summaries. Claim text is escaped. Identity entities, password hashes, security/concurrency stamps and login/token secrets are never serialized. Account operations remain Step 9; claim editing remains Step 10.
+Details show names, email/confirmation, creation time, administrator membership, stored claim type/value pairs, and password-presence/two-factor/lockout summaries. Claim text is escaped. Identity entities, password hashes, security/concurrency stamps and login/token secrets are never serialized. Details include an opaque edit version; raw concurrency stamps remain private. Claim editing remains Step 10.
 
-**Apply `Scripts/PopulateSchema.sql` to your existing test database before reviewing Step 8.** It installs `pg_trgm` and one GIN expression index without changing Identity tables. See the [Step 8 review instructions](docs/reviews/step-8.md) for database setup, API/query limits, browser checks, and automated tests. Stop for manual review before Step 9.
+**Apply `Scripts/PopulateSchema.sql` if your test database does not already have the approved Step 8 search index.** It installs `pg_trgm` and one GIN expression index without changing Identity tables. See the [Step 8 review instructions](docs/reviews/step-8.md) for database setup, API/query limits, browser checks, and automated tests. Step 9 adds no SQL or schema changes.
+
+## Administrative account operations
+
+Step 9 connects the existing Base UI dialogs to protected write endpoints. Administrators can create confirmed ordinary accounts, edit first/last/screen names and email confirmation, reset passwords, lock for one hour/24 hours/until unlocked, clear lockout and failed attempts, and permanently delete accounts. Email addresses stay read-only after creation; claims, clients, scopes and two-factor configuration keep their later review gates. Account creation and administrator password reset send no email, matching AIS2's administrative workflow.
+
+Every write requires the current administrator session and an antiforgery token. Forms carry an opaque version from the latest detail read; stale edits return 409 and require reload. Names-only updates retain sessions. Confirmation changes, password resets, lock/unlock and deletion invalidate AIS cookies and OIDC codes/refresh tokens, revoke persisted tokens/authorizations, and leave independently validated JWTs subject to their existing expiry. Identity writes and revocation share a transaction. The currently signed-in administrator cannot lock/delete/unconfirm their own account; an own-password reset ends their session.
+
+Dialogs identify the target and explain the effect before submission. Deletion also requires typing the email address (or ID for an account without email). Failed validation stays in the form; uncertain network/server failures clear protected data and require reloading the current account state, without replaying a write. Successful operations are logged with actor ID, operation and target ID, never submitted passwords or reset tokens.
+
+See the [Step 9 review instructions](docs/reviews/step-9.md) for the operation matrix, API, automated checks and manual tests. **Stop for manual review before Step 10.**
 
 ## Configuration and database
 
@@ -143,7 +153,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 8 checklist](docs/reviews/step-8.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 9 checklist](docs/reviews/step-9.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
 
 To run the built UI using ASP.NET Core alone:
 
@@ -152,6 +162,6 @@ npm run build --prefix AliceIdentityService.Admin
 dotnet run --project AliceIdentityService
 ```
 
-Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory and read-only details are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
+Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory, details and account operations are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 8 review checklist](docs/reviews/step-8.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 9.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 9 review checklist](docs/reviews/step-9.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 10.

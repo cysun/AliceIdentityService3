@@ -20,4 +20,4 @@ public sealed record AdminUserClaim(string? Type, string? Value);
 public sealed record AdminUserSecurity(bool HasPassword, bool TwoFactorEnabled, bool LockoutEnabled,
     DateTimeOffset? LockoutEnd, int AccessFailedCount);
 public sealed record AdminUserDetail(AdminUserSummary User, string FirstName, string LastName,
-    string ScreenName, bool EmailConfirmed, AdminUserSecurity Security, IReadOnlyList<AdminUserClaim> Claims);
+    string ScreenName, bool EmailConfirmed, AdminUserSecurity Security, IReadOnlyList<AdminUserClaim> Claims, string Version);

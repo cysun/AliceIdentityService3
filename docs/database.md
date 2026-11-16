@@ -106,3 +106,11 @@ WHERE i.schemaname = 'public' AND i.indexname = 'IX_AspNetUsers_Search';
 ```
 
 The integration suite applies both scripts on fresh disposable databases, reapplies PopulateSchema.sql, and checks the actual EF-generated count/page query plans against 30,000 synthetic users with EXPLAIN (ANALYZE, BUFFERS). It verifies that selective search uses the GIN index without disabling sequential scans, and exercises common/short search and a deep page. AIS2 restore checks remain read-only after the separately applied setup script. The schema comparison excludes extension-owned functions and the explicitly tested additive index while continuing to compare the shared AIS2 contract.
+
+## Step 9 administrative account operations
+
+Step 9 uses the existing Identity and OpenIddict mappings; both SQL scripts remain unchanged. Name edits automatically update the Step 8 GIN expression index. The detail API exposes a SHA-256-derived edit version from the user ID and concurrency stamp, never the raw stamp; Identity concurrency checks and submitted versions prevent overwriting normal intervening updates. This version is a concurrency marker, not an authorization credential.
+
+Administrative writes use a database transaction and the transaction-scoped advisory lock `7193402009`, then reload/revalidate the actor's account, security stamp and current `ais_admin` claim. Serializing these low-volume writes across instances prevents simultaneous administrators disabling each other with already-admitted requests. Future administrative claim writes should use the same serialization boundary. Ordinary reads and sign-ins are not serialized by this lock.
+
+Confirmation changes, password resets and lock/unlock rotate the security stamp and revoke all subject tokens/authorizations through the same scoped DbContext and transaction. Deletion cascades through the existing Identity foreign keys and revokes the subject's OIDC records; protocol records remain for normal OpenIddict retention. If revocation fails, Identity changes and any preceding revocations roll back. No migration, new columns, trigger, outbox, audit table or schema initialization is added. Success logs record actor/target IDs and operation; durable audit history remains a later operational concern.

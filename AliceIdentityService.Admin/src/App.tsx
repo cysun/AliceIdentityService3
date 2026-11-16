@@ -120,8 +120,8 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 8 review</strong> · User search and details are live. Account operations
-            are reserved for Step 9.
+            <strong>Step 9 review</strong> · User account operations are live. Claim assignment
+            remains reserved for Step 10.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>

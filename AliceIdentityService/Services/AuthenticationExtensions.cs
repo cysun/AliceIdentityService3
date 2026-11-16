@@ -25,6 +25,7 @@ public static class AuthenticationExtensions
         });
         services.AddAntiforgery(options =>
         {
+            options.HeaderName = "X-CSRF-TOKEN";
             options.Cookie.Name = "__Host-AIS3.Antiforgery";
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.Cookie.SameSite = SameSiteMode.Strict;

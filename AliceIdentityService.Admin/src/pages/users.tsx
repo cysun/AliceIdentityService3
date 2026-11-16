@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Search, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
 } from '@/lib/admin-api';
 import { useAdminSession } from '@/lib/admin-context';
 import { initials } from '@/lib/person';
+import { UserOperationButton } from './user-operations';
 
 const statuses = ['All statuses', 'Confirmed', 'Unconfirmed', 'Locked'];
 function positiveInteger(value: string | null, fallback: number, maximum: number) {
@@ -51,6 +52,7 @@ function SearchField({ query, onSearch }: { query: string; onSearch: (value: str
 }
 
 export function UsersPage() {
+  const navigate = useNavigate();
   const { request } = useAdminSession();
   const [params, setParams] = useSearchParams();
   const location = useLocation();
@@ -126,14 +128,20 @@ export function UsersPage() {
           <h1>Users</h1>
           <p>Find people and review their account details.</p>
         </div>
-        <Button
-          variant="outline"
-          disabled={!data}
-          onClick={() => setRevision((value) => value + 1)}
-        >
-          <RefreshCw size={15} />
-          Refresh
-        </Button>
+        <div className="user-detail-actions">
+          <UserOperationButton
+            operation="create"
+            onSuccess={(id) => navigate('/users/' + encodeURIComponent(id))}
+          />
+          <Button
+            variant="outline"
+            disabled={!data}
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            <RefreshCw size={15} />
+            Refresh
+          </Button>
+        </div>
       </div>
       <section className="panel">
         <div className="table-toolbar">
@@ -233,6 +241,9 @@ export function UsersPage() {
 }
 
 export function UserDetail() {
+  const navigate = useNavigate();
+  const [tab, setTab] = useState('profile');
+  const [notice, setNotice] = useState('');
   const { id = '' } = useParams();
   const { search } = useLocation();
   const { request } = useAdminSession();
@@ -260,6 +271,11 @@ export function UserDetail() {
         <ArrowLeft size={15} />
         All users
       </Link>
+      {notice && (
+        <p role="status" className="operation-notice">
+          {notice}
+        </p>
+      )}
       {data === undefined ? (
         <p role="status">Loading user…</p>
       ) : data === null ? (
@@ -287,7 +303,7 @@ export function UserDetail() {
               </Button>
             </div>
           </div>
-          <Tabs defaultValue="profile">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList aria-label="User information">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="claims">Claims</TabsTrigger>
@@ -334,7 +350,15 @@ export function UserDetail() {
                     <dd>{data.user.administrator ? 'Yes' : 'No'}</dd>
                   </div>
                 </dl>
-                <p>Account editing will be available in Step 9.</p>
+                <UserOperationButton
+                  operation="edit"
+                  data={data}
+                  onReload={() => setRevision((value) => value + 1)}
+                  onSuccess={() => {
+                    setNotice('Account updated.');
+                    setRevision((value) => value + 1);
+                  }}
+                />
               </section>
             </TabsContent>
             <TabsContent value="claims">
@@ -378,9 +402,11 @@ export function UserDetail() {
                   <div>
                     <dt>Lockout end</dt>
                     <dd>
-                      {data.security.lockoutEnd
-                        ? new Date(data.security.lockoutEnd).toLocaleString()
-                        : 'None'}
+                      {data.security.lockoutEnd?.startsWith('9999-')
+                        ? 'Until unlocked'
+                        : data.security.lockoutEnd
+                          ? new Date(data.security.lockoutEnd).toLocaleString()
+                          : 'None'}
                     </dd>
                   </div>
                   <div>
@@ -388,7 +414,23 @@ export function UserDetail() {
                     <dd>{data.security.accessFailedCount}</dd>
                   </div>
                 </dl>
-                <p>Password and lockout actions will be available in Step 9.</p>
+                <div className="security-actions">
+                  {(['password', 'lock', 'unlock', 'delete'] as const).map((operation) => (
+                    <UserOperationButton
+                      key={operation}
+                      operation={operation}
+                      data={data}
+                      onReload={() => setRevision((value) => value + 1)}
+                      onSuccess={() => {
+                        if (operation === 'delete') navigate('/users' + search);
+                        else {
+                          setNotice('Account security updated.');
+                          setRevision((value) => value + 1);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
               </section>
             </TabsContent>
           </Tabs>

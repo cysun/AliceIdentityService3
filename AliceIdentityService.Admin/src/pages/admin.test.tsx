@@ -20,8 +20,8 @@ function session(lifetimeMs = 8 * 60 * 60 * 1000): AdminSession {
     expiresAt: new Date(now.getTime() + lifetimeMs).toISOString(),
     application: {
       name: 'Alice Identity Service',
-      version: '3.0.0-preview.8',
-      implementationStep: 8,
+      version: '3.0.0-preview.9',
+      implementationStep: 9,
     },
   };
 }

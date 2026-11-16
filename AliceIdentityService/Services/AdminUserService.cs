@@ -66,6 +66,7 @@ public sealed class AdminUserService(AisDbContext database, TimeProvider clock)
             user.LastName,
             user.ScreenName,
             user.EmailConfirmed,
+            user.ConcurrencyStamp,
             Security = new AdminUserSecurity(user.PasswordHash != null, user.TwoFactorEnabled,
                 user.LockoutEnabled, user.LockoutEnd, user.AccessFailedCount)
         }).SingleAsync(cancellationToken);
@@ -73,7 +74,7 @@ public sealed class AdminUserService(AisDbContext database, TimeProvider clock)
             .OrderBy(claim => claim.ClaimType).ThenBy(claim => claim.Id)
             .Select(claim => new AdminUserClaim(claim.ClaimType, claim.ClaimValue)).ToListAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new(summary, profile.FirstName, profile.LastName, profile.ScreenName, profile.EmailConfirmed, profile.Security, claims);
+        return new(summary, profile.FirstName, profile.LastName, profile.ScreenName, profile.EmailConfirmed, profile.Security, claims, AdminUserVersion.For(id, profile.ConcurrencyStamp));
     }
 
     private IQueryable<AdminUserSummary> Summaries(IQueryable<User> users, DateTimeOffset now) =>

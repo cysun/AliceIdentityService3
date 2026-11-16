@@ -22,6 +22,7 @@ const directory: AdminUserPage = {
   asOf: '2026-11-15T12:00:00Z',
 };
 const detail: AdminUserDetail = {
+  version: 'A'.repeat(64),
   user: person,
   firstName: 'Actual',
   lastName: 'Person',
@@ -65,8 +66,8 @@ function api(
           expiresAt: '2026-11-15T20:00:00Z',
           application: {
             name: 'Alice Identity Service',
-            version: '3.0.0-preview.8',
-            implementationStep: 8,
+            version: '3.0.0-preview.9',
+            implementationStep: 9,
           },
         }),
       );
@@ -270,7 +271,7 @@ describe('live user directory', () => {
     await user.click(screen.getByRole('tab', { name: 'Security' }));
     expect(screen.getByText('Failed sign-in attempts').nextElementSibling).toHaveTextContent('2');
     expect(
-      screen.queryByRole('button', { name: /save|delete|reset password/i }),
+      screen.queryByRole('button', { name: /add claim|assign claim/i }),
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'All users' }));
     await screen.findByRole('table', { name: 'Users' });

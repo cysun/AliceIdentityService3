@@ -150,7 +150,7 @@ public sealed class AdminUserTests(ITestOutputHelper output)
         Assert.True(detail.Security.HasPassword);
         Assert.Equal(3, detail.Claims.Count);
         var json = JsonDocument.Parse(body).RootElement;
-        Assert.Equal(["claims", "emailConfirmed", "firstName", "lastName", "screenName", "security", "user"], Keys(json));
+        Assert.Equal(["claims", "emailConfirmed", "firstName", "lastName", "screenName", "security", "user", "version"], Keys(json));
         Assert.Equal(["accessFailedCount", "hasPassword", "lockoutEnabled", "lockoutEnd", "twoFactorEnabled"], Keys(json.GetProperty("security")));
         Assert.Equal(["type", "value"], Keys(json.GetProperty("claims")[0]));
         var list = await client.Browser.GetFromJsonAsync<JsonElement>("/api/admin/users?q=mary");

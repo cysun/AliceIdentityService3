@@ -1,12 +1,18 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { AdminApiError, getAdminJson, type AdminSession } from './admin-api';
+import {
+  AdminApiError,
+  AdminMutationError,
+  getAdminJson,
+  mutateAdminJson,
+  type AdminSession,
+} from './admin-api';
 import { AdminSessionContext } from './admin-context';
 
 type Blocked = 'expired' | 'forbidden' | 'unavailable';
 type State =
-  | { status: 'checking' | Blocked }
+  | { status: 'checking' | Blocked; uncertainWrite?: boolean }
   | { status: 'ready'; session: AdminSession; remainingMs: number };
 function failureStatus(error: unknown): Blocked {
   if (error instanceof AdminApiError && error.status === 401) return 'expired';
@@ -25,9 +31,9 @@ export function AdminAccess({ children }: { children: ReactNode }) {
     pending.current?.abort();
   }, []);
   const block = useCallback(
-    (status: Blocked) => {
+    (status: Blocked, uncertainWrite = false) => {
       cancelCheck();
-      setState({ status });
+      setState({ status, uncertainWrite });
     },
     [cancelCheck],
   );
@@ -65,6 +71,24 @@ export function AdminAccess({ children }: { children: ReactNode }) {
     [block],
   );
 
+  const actorId = state.status === 'ready' ? state.session.user.id : '';
+  const mutate = useCallback(
+    async (path: string, body: unknown, method?: 'POST' | 'DELETE') => {
+      try {
+        const result = await mutateAdminJson(path, body, actorId, method);
+        if (result.sessionEnded) block('expired');
+        else void check();
+        return result;
+      } catch (error) {
+        // Validation, stale edits and removed records belong to the form. Never replay a write.
+        if (!(error instanceof AdminMutationError && [400, 404, 409].includes(error.status)))
+          block(failureStatus(error), true);
+        throw error;
+      }
+    },
+    [block, check, actorId],
+  );
+
   useEffect(() => {
     // check only updates state after its network request completes.
     // oxlint-disable-next-line react/set-state-in-effect
@@ -95,7 +119,7 @@ export function AdminAccess({ children }: { children: ReactNode }) {
 
   if (state.status === 'ready')
     return (
-      <AdminSessionContext.Provider value={{ session: state.session, request }}>
+      <AdminSessionContext.Provider value={{ session: state.session, request, mutate }}>
         <Fragment key={state.session.user.id}>{children}</Fragment>
       </AdminSessionContext.Provider>
     );
@@ -131,6 +155,11 @@ export function AdminAccess({ children }: { children: ReactNode }) {
         {state.status === 'unavailable' && (
           <>
             <p>We could not verify access or load administration data. Please try again.</p>
+            {state.uncertainWrite && (
+              <p>
+                The change may have completed. Reload and check the account before submitting again.
+              </p>
+            )}
             <Button
               onClick={() => {
                 setState({ status: 'checking' });

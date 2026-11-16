@@ -56,6 +56,7 @@ export type AdminUserPage = {
   asOf: string;
 };
 export type AdminUserDetail = {
+  version: string;
   user: AdminUser;
   firstName: string;
   lastName: string;
@@ -84,4 +85,64 @@ export async function getAdminJson<T>(path: string, signal?: AbortSignal): Promi
   if (!response.headers.get('Content-Type')?.includes('application/json'))
     throw new Error('Unexpected administration response');
   return response.json() as Promise<T>;
+}
+
+export type AdminMutationResult = { id: string; sessionEnded: boolean };
+export class AdminMutationError extends AdminApiError {
+  readonly messages: string[];
+  constructor(status: number, messages: string[]) {
+    super(status);
+    this.messages = messages;
+  }
+}
+
+export async function mutateAdminJson(
+  path: string,
+  body: unknown,
+  expectedActorId: string,
+  method: 'POST' | 'DELETE' = 'POST',
+): Promise<AdminMutationResult> {
+  // Fetch a fresh user-bound request token. The HttpOnly antiforgery cookie stays in the browser.
+  const { requestToken, userId } = await getAdminJson<{ requestToken: string; userId: string }>(
+    '/api/admin/antiforgery',
+  );
+  if (userId !== expectedActorId) throw new AdminApiError(401);
+  const response = await fetch(path, {
+    method,
+    credentials: 'same-origin',
+    cache: 'no-store',
+    redirect: 'error',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-CSRF-TOKEN': requestToken,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) {
+    let messages: string[] = [];
+    if (response.headers.get('Content-Type')?.includes('json')) {
+      const problem = (await response.json()) as {
+        title?: string;
+        errors?: Record<string, string[]>;
+      };
+      messages = problem.errors
+        ? Object.values(problem.errors)
+            .flat()
+            .filter((value) => typeof value === 'string')
+        : [];
+      if (!messages.length && problem.title && problem.title !== 'Bad Request')
+        messages = [problem.title];
+    }
+    throw new AdminMutationError(
+      response.status,
+      messages.length
+        ? messages
+        : ['The request could not be validated. Reload the account and try again.'],
+    );
+  }
+  if (!response.headers.get('Content-Type')?.includes('application/json'))
+    throw new Error('Unexpected administration response');
+  return response.json() as Promise<AdminMutationResult>;
 }
