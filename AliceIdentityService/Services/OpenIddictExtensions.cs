@@ -2,6 +2,7 @@ using System.Security.Cryptography.X509Certificates;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using OpenIddict.Server;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.IdentityModel.Tokens;
 
 namespace AliceIdentityService.Services;
 
@@ -40,6 +41,10 @@ public static class OpenIddictExtensions
             {
                 options.AddEphemeralEncryptionKey().AddEphemeralSigningKey();
             }
+            else if (environment.IsDeployed())
+            {
+                // The persistent certificates are added through DI below.
+            }
             else if (!string.IsNullOrWhiteSpace(configuration["OpenIddict:SigningCertificatePath"]) &&
                 !string.IsNullOrWhiteSpace(configuration["OpenIddict:EncryptionCertificatePath"]))
             {
@@ -57,8 +62,14 @@ public static class OpenIddictExtensions
             {
                 options.AddDevelopmentEncryptionCertificate().AddDevelopmentSigningCertificate();
             }
-            else throw new InvalidOperationException("AIS3 is development-only until staging and hardening are reviewed. Configure both OpenIddict signing and encryption certificates before deployment.");
+            else throw new InvalidOperationException("Configure both OpenIddict signing and encryption certificates before deployment.");
         });
+        if (environment.IsDeployed())
+            services.AddOptions<OpenIddictServerOptions>().Configure<DeploymentCertificates>((options, certificates) =>
+            {
+                options.SigningCredentials.Add(new SigningCredentials(new X509SecurityKey(certificates.Signing), SecurityAlgorithms.RsaSha256));
+                options.EncryptionCredentials.Add(new EncryptingCredentials(new X509SecurityKey(certificates.Encryption), SecurityAlgorithms.RsaOAEP, SecurityAlgorithms.Aes256CbcHmacSha512));
+            });
         services.AddOptions<OpenIddictServerOptions>().Configure<IConfiguration>((options, settings) =>
         {
             var issuer = new Uri(settings["OpenIddict:Issuer"] ?? "https://localhost:7443/", UriKind.Absolute);

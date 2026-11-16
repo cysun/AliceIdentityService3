@@ -1,0 +1,37 @@
+[Unit]
+Description=Alice Identity Service 3 (staging)
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ais3
+Group=ais3
+WorkingDirectory=/opt/ais3/current
+ExecStart=/usr/bin/dotnet /opt/ais3/current/AliceIdentityService.dll
+Environment=ASPNETCORE_ENVIRONMENT=Staging
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5000
+Environment=DOTNET_EnableDiagnostics=0
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+SyslogIdentifier=ais3
+UMask=0077
+StateDirectory=ais3
+StateDirectoryMode=0700
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

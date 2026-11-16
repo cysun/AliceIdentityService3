@@ -1,6 +1,6 @@
 # Step 12 review — RabbitMQ mail publication
 
-Steps 1–11 are reviewed and committed; Step 11 is `07e10f0`. Step 12 is implemented and **uncommitted for manual review**. Stop before Step 13.
+Steps 1–12 are reviewed and committed; Step 12 is `954b5bd`. This checklist records the Step 12 handoff. Current work is documented in the [Step 13 review](step-13.md).
 
 ## Scope and behavior
 
@@ -64,4 +64,4 @@ Verified for this handoff: **123 backend tests passed, none skipped; 70 frontend
 
 The published output contains all six email template files and no private appsettings.json, migration source or Mail administration bundle. PostgreSQL checks included a disposable AIS2 restore with PopulateSchema.sql applied; the restore and temporary dump were removed. RabbitMQ test queues were removed. No AliceMailService consumer or SMTP server was needed. Verification server ports 7443 and 9443 have no listeners.
 
-Changes remain uncommitted for manual review. Step 13 has not started.
+At that handoff, changes were uncommitted and Step 13 had not started; see the current review linked above.

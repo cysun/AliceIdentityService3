@@ -141,4 +141,10 @@ Step 12 adds no tables, model changes, migrations or SQL. Confirmation/resend an
 
 AIS3's responsibility ends at RabbitMQ publication. The consumer's SMTP delivery, retries and failed-message storage are outside AIS3 and its database. No outbox, delivery ledger, queue diagnostics or consumer-management feature is added. Tests use isolated temporary RabbitMQ queues and no mail consumer or SMTP server.
 
-CreateSchema.sql and PopulateSchema.sql remain unchanged. Private appsettings.json and migration code remain ignored; appsettings.sample.json remains tracked. See the [Step 12 review](reviews/step-12.md). Step 12 remains uncommitted pending manual review.
+CreateSchema.sql and PopulateSchema.sql remain unchanged. Private appsettings.json and migration code remain ignored; appsettings.sample.json remains tracked. See the [Step 12 review](reviews/step-12.md). Step 12 is approved and committed as `954b5bd`.
+
+## Step 13 staging and hardening
+
+Step 13 introduces no schema, model or SQL changes. Deployed hosts validate configuration and persistent key storage; database readiness reads the existing user table. Startup never applies schema scripts, migrations or bootstrap. The runtime database role needs ordinary table/sequence access, while schema setup uses a separate owner/deployment role.
+
+Staging uses its own fresh database or separate AIS2 restore, with PopulateSchema.sql applied explicitly. The two passwordless certificates and their `keys` subfolder for Data Protection are stored together in `Application:CertificateFolder`, outside release directories and the database; preserve the entire folder across deployments and back it up with the private configuration and database. Code rollback retains the current database and key material, avoiding loss of intervening security changes. AIS2 token/session continuity and migration remain Step 14 work. See the [deployment guide](deployment.md) and [Step 13 review](reviews/step-13.md).

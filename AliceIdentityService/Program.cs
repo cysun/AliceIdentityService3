@@ -5,7 +5,6 @@ using AliceIdentityService.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
 
@@ -13,7 +12,14 @@ var bootstrap = args.FirstOrDefault() == "bootstrap";
 var reviewClient = args.FirstOrDefault() == "review-client";
 var builder = WebApplication.CreateBuilder(bootstrap || reviewClient ? [] : args);
 builder.Services.AddSerilog((services, logger) =>
-    logger.ReadFrom.Configuration(services.GetRequiredService<IConfiguration>()));
+{
+    logger.ReadFrom.Configuration(services.GetRequiredService<IConfiguration>());
+    if (builder.Environment.IsDeployed())
+        logger.MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+            .MinimumLevel.Override("OpenIddict", Serilog.Events.LogEventLevel.Warning)
+            .MinimumLevel.Override("Npgsql", Serilog.Events.LogEventLevel.Warning);
+});
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 builder.Services.AddAisData();
 builder.Services.AddAisAuthentication();
 builder.Services.AddAisRegistration();
@@ -23,17 +29,13 @@ builder.Services.AddScoped<AdminUserMutationService>();
 builder.Services.AddScoped<AdminWriteGuard>();
 builder.Services.AddScoped<AdminScopeService>();
 builder.Services.AddScoped<AdminClientService>();
-if (!bootstrap && !reviewClient) builder.Services.AddAisOpenIddict(builder.Configuration, builder.Environment);
-// The Vite runner binds only HTTP on the backend, so endpoint discovery alone
-// cannot determine the public HTTPS port. Keep redirects active in that mode too.
-builder.Services.AddHttpsRedirection(options => options.HttpsPort = builder.Configuration.GetValue("HTTPS_PORT", 7443));
-builder.Services.AddControllersWithViews(options => options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
-// The development HTTPS proxy is local. Do not trust forwarded headers from arbitrary hosts.
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
+if (!bootstrap && !reviewClient)
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownProxies.Add(System.Net.IPAddress.Loopback);
-});
+    builder.Services.AddAisHosting(builder.Configuration, builder.Environment);
+    builder.Services.AddAisOpenIddict(builder.Configuration, builder.Environment);
+}
+builder.Services.AddHttpsRedirection(_ => { });
+builder.Services.AddControllersWithViews(options => options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute()));
 builder.Services.AddHealthChecks().AddCheck<DatabaseReadinessCheck>("database", tags: ["ready"]);
 
 var app = builder.Build();
@@ -50,11 +52,12 @@ if (bootstrap)
     return;
 }
 
-// After Build so EF tooling can obtain the registered context without starting the preview.
-if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
-    throw new InvalidOperationException("AIS3 is development-only until the staging and hardening review is complete.");
+// After Build so EF tooling can obtain the registered context without starting a host.
+app.ValidateAisHosting();
 
 app.UseForwardedHeaders();
+app.UseMiddleware<HostingSecurityMiddleware>();
+if (app.Environment.IsDeployed()) app.UseHsts();
 // /health remains usable by the local development runner before the HTTPS proxy starts.
 app.UseWhen(context => !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseHttpsRedirection());
 app.Use(async (context, next) =>

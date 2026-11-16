@@ -110,8 +110,8 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 12 review</strong> · RabbitMQ mail publication is verified. Staging and
-            hardening remain reserved for Step 13.
+            <strong>Step 13 review</strong> · Staging and hardening are ready for review. AIS2
+            migration remains reserved for Step 14.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>

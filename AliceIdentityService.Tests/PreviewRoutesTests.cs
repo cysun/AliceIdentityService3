@@ -118,14 +118,6 @@ public sealed class PreviewRoutesTests(PreviewFactory factory) : IClassFixture<P
     }
 
     [Fact]
-    public void ProductionCannotStartTheUnauthenticatedPreview()
-    {
-        using var production = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
-        var error = Assert.Throws<InvalidOperationException>(() => production.CreateClient());
-        Assert.Contains("development-only", error.Message);
-    }
-
-    [Fact]
     public async Task PlainHttpRedirectsToHttpsEvenWithAnHttpOnlyBackendListener()
     {
         using var http = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
