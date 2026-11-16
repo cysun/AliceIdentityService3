@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–10 are approved and committed (Step 10: `5b469b0`). Step 11 is implemented and uncommitted for review. Step 12 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–11 are approved and committed (Step 11: `07e10f0`). Step 12 is implemented and uncommitted for review. Step 13 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and basic mail delivery integration are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database. Step 12 reviews RabbitMQ publication and adds safe publication logging.
 
 ## Projects
 
@@ -73,11 +73,11 @@ Confirmation links expire after 24 hours. Opening a link displays a confirmation
 
 Configure the `Email` and `RabbitMQ` sections from `appsettings.sample.json` in your private configuration. `Email:AppUrl` is the public HTTPS origin used in links (default `https://localhost:7443/`); it does not come from the request Host header. Set a sender address accepted by your mail provider. RabbitMQ host, credentials, and queue must match the AliceMailService consumer; AIS3 also supports explicit port, virtual host, and TLS settings for the publisher. SMTP configuration belongs to AliceMailService, not AIS3.
 
-AIS3 publishes a persistent, mandatory MessagePack list of MIME-message byte arrays to the durable queue and awaits broker confirmation. AliceMailService sends the email. A queue/configuration failure returns HTTP 503 with a retry page; a newly created account remains unconfirmed and can request another email after the cooldown. Broker acceptance is not proof of mailbox delivery, and a timeout can leave publication uncertain, so retry may produce a duplicate email. There is no automatic application retry or database outbox in Step 5. Application mail logs omit recipients, tokens, links, and raw exception text.
+AIS3 publishes a persistent, mandatory MessagePack list of MIME-message byte arrays to the durable queue and awaits broker confirmation. AliceMailService sends the email. A queue/configuration failure returns HTTP 503 with a retry page; a newly created account remains unconfirmed and can request another email after the cooldown. Broker acceptance is not proof of mailbox delivery, and a timeout can leave publication uncertain, so retry may produce a duplicate email. There is no automatic application retry or database outbox. Application mail logs omit recipients, tokens, links, and raw exception text. Step 12 adds publication outcome/stage logging and MIME Message-ID correlation for broker-confirmed messages.
 
 Email content is kept in `AliceIdentityService/EmailTemplates`: `EmailVerification.Subject.txt`, `EmailVerification.Body.txt` (plain text), and `EmailVerification.Body.html`. The bodies use the literal `{{link}}` placeholder; HTML substitutions are escaped. Files are read when sending and copied into build/publish output, so copy edits do not require changing C# code. Missing or invalid templates follow the same retry/failure path as a mail-publication failure. Password-reset content uses the corresponding `ResetPassword.Subject.txt`, `.Body.txt`, and `.Body.html` files through the same renderer.
 
-The [Step 5 review instructions](docs/reviews/step-5.md) cover configuration, direct/OIDC registration, resend, and failure cases. Basic delivery integration moved forward from Step 12; password recovery reuses it, and Step 12 retains the operations review.
+The [Step 5 review instructions](docs/reviews/step-5.md) cover configuration, direct/OIDC registration, resend, and failure cases. Basic delivery integration moved forward from Step 12; password recovery reuses it. Step 12 reviews publication behavior below; delivery operations belong to AliceMailService.
 
 ## Password recovery and profile
 
@@ -99,7 +99,7 @@ The session response contains only the current user's ID, email and names, the o
 
 The overview uses one consistent database snapshot for total users, registered applications, unconfirmed emails, distinct accounts assigned `ais_admin`, and enabled/unexpired lockouts. Administrator counts include assigned claims regardless of their value or the account's current lockout/confirmation state. Recent registrations show at most five accounts, ordered by creation time descending and ID ascending for ties. Application cards show at most six registered clients, ordered by display name (falling back to client ID/record ID). **Refresh** updates the snapshot; session polling does not refresh the overview. A registered client is not a measurement of online activity.
 
-Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows open live user details, and attention links open filtered user lists. Clients remain a planned page, and component demonstrations remain local previews.
+Only safe summary fields are projected into the overview. No password hashes, security/concurrency stamps, client secrets, arbitrary claims, or client properties are serialized. Recent rows open live user details, and attention links open filtered user lists. Client links open their live detail pages, and component demonstrations remain local previews.
 
 See the [Step 7 review instructions](docs/reviews/step-7.md) for counts, session expiry/sign-out, access denial, failure recovery, and regression checks. Step 7 itself needed no schema changes. Step 8 adds the search objects described below.
 
@@ -147,7 +147,17 @@ Secrets are masked in the form, can be generated locally in the browser, and mus
 
 Changing redirects, scopes, refresh permission, PKCE or credentials revokes that client's persisted codes, refresh tokens and authorizations transactionally. Display-name-only changes retain grants and all client operations retain AIS user cookies. Deletion removes the registration and associated protocol rows after exact-ID confirmation. Existing JWTs and application-local sessions may remain valid until expiry. Writes use the existing administrator/CSRF/concurrency protections. No SQL, schema, dependencies or application configuration change is required.
 
-See the [Step 11 review](docs/reviews/step-11.md) for limits, imported-client behavior, testing instructions and the configurable public/confidential OIDC review client. **Stop for manual review before Step 12.**
+See the [Step 11 review](docs/reviews/step-11.md) for limits, imported-client behavior, testing instructions and the configurable public/confidential OIDC review client.
+
+## RabbitMQ mail publication
+
+Step 12 is a focused review of AIS3's existing mail publisher. AIS3 renders confirmation/reset messages, serializes the agreed MessagePack/MIME contract, publishes persistent messages to the durable RabbitMQ queue, and awaits broker confirmation. Successful publication does not require an active consumer. AliceMailService owns subsequent SMTP delivery, retries and failed-message recovery.
+
+Publication logs now identify mail kind and failure stage, include the generated MIME Message-ID after broker confirmation, and omit recipients, bodies, action links and raw exception text. Failed or cancelled publication is not reported as successful. No automatic replay is added: if the broker accepted a message but its acknowledgment was lost, another request can produce a duplicate.
+
+Tests cover successful publication with no consumer, recovery on a later request after a channel failure, cancellation, no automatic replay and private logging, alongside the existing connection-failure, serialization, template and account-recovery tests. There is no Mail administration page, diagnostic API/command, metrics subsystem, consumer management or SMTP test harness in AIS3.
+
+See the [Step 12 review](docs/reviews/step-12.md) for publication testing instructions and the service boundary. **Stop for manual review before Step 13.**
 
 ## Configuration and database
 
@@ -175,7 +185,7 @@ dotnet test
 dotnet format --verify-no-changes --no-restore
 ```
 
-The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 11 checklist](docs/reviews/step-11.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
+The frontend check runs formatting, lint, build, UI tests, and development access checks. Build it before backend tests so HTTP tests can check real admin assets. PostgreSQL integration tests are opt-in; the [Step 12 checklist](docs/reviews/step-12.md) gives commands for running the full suite and manual administration checks. The separate review client is documented in the [Step 4 checklist](docs/reviews/step-4.md).
 
 To run the built UI using ASP.NET Core alone:
 
@@ -186,4 +196,4 @@ dotnet run --project AliceIdentityService
 
 Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory, details, account operations, claims, scopes and clients are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-The web host remains Development/Testing-only until the staging and hardening review. See the [Step 11 review checklist](docs/reviews/step-11.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 12.
+The web host remains Development/Testing-only until the staging and hardening review. See the [Step 12 review checklist](docs/reviews/step-12.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 13.

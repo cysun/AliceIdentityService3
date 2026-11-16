@@ -1,6 +1,6 @@
 # Step 11 review — Clients
 
-Steps 1–10 are reviewed and committed; Step 10 is `5b469b0`. Step 11 is implemented and **uncommitted for manual review**. Stop before Step 12.
+Steps 1–11 are reviewed and committed; Step 11 is `07e10f0`. This checklist records the Step 11 handoff. Current work is documented in the [Step 12 review](step-12.md).
 
 ## Delivered behavior
 
@@ -106,4 +106,4 @@ Verified for this handoff: **121 backend tests passed, none skipped; 70 frontend
 
 Browser review used a fresh disposable database: directory/details, public/confidential registration fields, dialog cancellation/focus return and a persisted display-name edit were checked. Secret/type mutations and deletion were exercised through HTTP integration tests; the full manual checklist remains the review gate. A screenshot is in ignored `artifacts/reviews/step-11-client-detail.jpg`.
 
-The temporary verification server is stopped. Disposable Step 11 databases and the temporary AIS2 dump are removed after checks; the source AIS2 database and private application configuration are untouched. Changes remain uncommitted. Step 12 has not started.
+The temporary verification server is stopped. Disposable Step 11 databases and the temporary AIS2 dump are removed after checks; the source AIS2 database and private application configuration are untouched. At that handoff, changes were uncommitted and Step 12 had not started; see the current review linked above.

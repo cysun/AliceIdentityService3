@@ -133,4 +133,12 @@ Application reads expose a safe projection and an opaque version derived from th
 
 Changes to callbacks, allowed scopes, refresh permission, PKCE or credentials revoke tokens and authorizations by application ID in the same shared transaction. Display-name-only edits do not revoke grants. Client deletion uses the OpenIddict manager to remove the application and associated authorizations/tokens; reuse of the public client ID cannot revive old grants. Injected revocation/deletion failures are tested for rollback. No Identity cookie/security stamp changes occur. Already-issued self-contained JWTs and downstream sessions retain their own expiry.
 
-The shared administrative lock also serializes scope-deletion checks with client permission changes. OpenIddict entity caching remains disabled across instances, so new credentials, callback CORS origins and permissions become visible without restarting. Direct SQL or concurrent AIS2 writers do not participate in this lock. See the [Step 11 review](reviews/step-11.md); this step remains uncommitted pending manual review.
+The shared administrative lock also serializes scope-deletion checks with client permission changes. OpenIddict entity caching remains disabled across instances, so new credentials, callback CORS origins and permissions become visible without restarting. Direct SQL or concurrent AIS2 writers do not participate in this lock. See the [Step 11 review](reviews/step-11.md); Step 11 is approved and committed as `07e10f0`.
+
+## Step 12 mail publication
+
+Step 12 adds no tables, model changes, migrations or SQL. Confirmation/resend and password recovery retain their existing account, token and throttling behavior. Failed publication does not remove a newly created unconfirmed account; a later request can generate another link under the same limits.
+
+AIS3's responsibility ends at RabbitMQ publication. The consumer's SMTP delivery, retries and failed-message storage are outside AIS3 and its database. No outbox, delivery ledger, queue diagnostics or consumer-management feature is added. Tests use isolated temporary RabbitMQ queues and no mail consumer or SMTP server.
+
+CreateSchema.sql and PopulateSchema.sql remain unchanged. Private appsettings.json and migration code remain ignored; appsettings.sample.json remains tracked. See the [Step 12 review](reviews/step-12.md). Step 12 remains uncommitted pending manual review.

@@ -4,9 +4,11 @@ using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 
 namespace AliceIdentityService.Tests;
 
@@ -33,10 +35,103 @@ public sealed class RabbitFactAttribute : FactAttribute
 
 public sealed class MailTests
 {
+    private sealed class PublicationLogger : ILogger<AccountEmailSender>
+    {
+        public List<string> Lines { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel level) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? exception, Func<TState, Exception?, string> formatter) => Lines.Add(formatter(state, exception));
+    }
+
+    private sealed class RecordingPublisher(Func<CancellationToken, Task> publish) : IMailPublisher
+    {
+        public int Calls { get; private set; }
+        public byte[]? Body { get; private set; }
+        public Task PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Body = body.ToArray();
+            return publish(cancellationToken);
+        }
+    }
+
     private static EmailTemplates Templates() => new(Path.Combine(AppContext.BaseDirectory, "EmailTemplates"));
     // Copy edits belong to the templates, not assertions about MIME transport.
     private static string Subject(string template) => File.ReadAllText(Path.Combine(
         AppContext.BaseDirectory, "EmailTemplates", template + ".Subject.txt")).Trim();
+
+    [Fact]
+    public async Task PublicationLogsAreAccurateAndPrivateAndUncertainAttemptsAreNeverReplayed()
+    {
+        var logger = new PublicationLogger();
+        AccountEmailSender Sender(IMailPublisher publisher) => new(Options.Create(new EmailSettings { SenderEmail = "noreply@example.test" }), publisher, Templates(), logger);
+        Task Send(IMailPublisher publisher, CancellationToken cancellationToken = default) => Sender(publisher)
+            .SendConfirmationAsync("private-recipient@example.test", "Private Name", "/Account/ConfirmEmail?code=PRIVATE-TOKEN", cancellationToken);
+
+        var success = new RecordingPublisher(_ => Task.CompletedTask);
+        await Send(success);
+        using var message = MimeMessage.Load(new MemoryStream(Assert.Single(MessagePackSerializer.Deserialize<List<byte[]>>(success.Body!))));
+        Assert.Contains(logger.Lines, line => line.Contains("broker-confirmed") && line.Contains(message.MessageId!));
+
+        // The publisher may have accepted these bytes before its acknowledgment was lost.
+        var uncertain = new RecordingPublisher(_ => throw new IOException("PRIVATE-TOKEN private-recipient@example.test"));
+        var failure = await Assert.ThrowsAsync<MailDeliveryException>(() => Send(uncertain));
+        Assert.Equal("The account email publication was not confirmed.", failure.Message);
+        Assert.Equal(1, uncertain.Calls);
+        Assert.Contains(logger.Lines, line => line.Contains("not broker-confirmed during broker") && line.Contains(nameof(IOException)));
+
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelled = new RecordingPublisher(async token => { entered.SetResult(); await Task.Delay(Timeout.Infinite, token); });
+        using var cancellation = new CancellationTokenSource();
+        var pending = Send(cancelled, cancellation.Token);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.Equal(1, cancelled.Calls);
+        Assert.Contains(logger.Lines, line => line.Contains("cancelled during broker"));
+        Assert.Single(logger.Lines, line => line.StartsWith("Account email confirmation broker-confirmed"));
+        var output = string.Join('\n', logger.Lines);
+        Assert.DoesNotContain("private-recipient", output);
+        Assert.DoesNotContain("Private Name", output);
+        Assert.DoesNotContain("PRIVATE-TOKEN", output);
+        Assert.DoesNotContain("/Account/ConfirmEmail", output);
+    }
+
+    [RabbitFact]
+    public async Task RabbitPublicationSucceedsWithoutAConsumerAndRecoversAfterAChannelFailure()
+    {
+        var options = new RabbitMqSettings
+        {
+            HostName = Environment.GetEnvironmentVariable("AIS3_TEST_RABBITMQ_HOST")!,
+            UserName = Environment.GetEnvironmentVariable("AIS3_TEST_RABBITMQ_USERNAME") ?? "guest",
+            Password = Environment.GetEnvironmentVariable("AIS3_TEST_RABBITMQ_PASSWORD") ?? "guest",
+            QueueName = "ais3_step12_publish_" + Guid.NewGuid().ToString("N")
+        };
+        await using var connection = await new ConnectionFactory { HostName = options.HostName, UserName = options.UserName, Password = options.Password }.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await using var publisher = new RabbitMailPublisher(Options.Create(options));
+        try
+        {
+            // A declaration conflict closes the publisher's channel, not its connection.
+            await channel.QueueDeclareAsync(options.QueueName, durable: true, exclusive: false, autoDelete: true);
+            await Assert.ThrowsAsync<OperationInterruptedException>(() => publisher.PublishAsync(new byte[] { 42 }, default));
+            Assert.Equal(0U, await channel.MessageCountAsync(options.QueueName));
+            await channel.QueueDeleteAsync(options.QueueName);
+
+            // A subsequent explicit request can publish on a fresh channel without a mail consumer.
+            await publisher.PublishAsync(new byte[] { 42 }, default);
+            Assert.Equal(0U, await channel.ConsumerCountAsync(options.QueueName));
+            Assert.Equal(1U, await channel.MessageCountAsync(options.QueueName));
+            var delivery = await channel.BasicGetAsync(options.QueueName, autoAck: true);
+            Assert.NotNull(delivery);
+            Assert.Equal(new byte[] { 42 }, delivery.Body.ToArray());
+            Assert.True(delivery.BasicProperties.Persistent);
+            Assert.Equal("application/x-msgpack", delivery.BasicProperties.ContentType);
+            Assert.False(string.IsNullOrEmpty(delivery.BasicProperties.MessageId));
+            Assert.Null(await channel.BasicGetAsync(options.QueueName, autoAck: true));
+        }
+        finally { await channel.QueueDeleteAsync(options.QueueName); }
+    }
 
     [Fact]
     public async Task TemplatesUseEditedContentAndEncodeHtmlWhileRejectingBrokenActionTemplates()
