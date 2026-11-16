@@ -45,3 +45,9 @@ public sealed class AdminDeleteUserInput : AdminUserVersionInput
 }
 
 public sealed record AdminMutationResult(string Id, bool SessionEnded);
+
+public sealed class AdminClaimInput : AdminUserVersionInput
+{
+    [Required, StringLength(256)] public string Type { get; set; } = string.Empty;
+    [Required(AllowEmptyStrings = true), StringLength(4096), JsonRequired] public string Value { get; set; } = string.Empty;
+}

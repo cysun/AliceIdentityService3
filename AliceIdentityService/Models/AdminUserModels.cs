@@ -16,7 +16,7 @@ public sealed record AdminUserSummary(string Id, string Name, string? Email, str
     DateTime CreatedAt, bool Administrator);
 public sealed record AdminUserPage(IReadOnlyList<AdminUserSummary> Items, long TotalCount,
     int Page, int PageSize, DateTimeOffset AsOf);
-public sealed record AdminUserClaim(string? Type, string? Value);
+public sealed record AdminUserClaim(string? Type, string? Value, int Id);
 public sealed record AdminUserSecurity(bool HasPassword, bool TwoFactorEnabled, bool LockoutEnabled,
     DateTimeOffset? LockoutEnd, int AccessFailedCount);
 public sealed record AdminUserDetail(AdminUserSummary User, string FirstName, string LastName,

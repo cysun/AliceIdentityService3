@@ -152,7 +152,7 @@ public sealed class AdminUserTests(ITestOutputHelper output)
         var json = JsonDocument.Parse(body).RootElement;
         Assert.Equal(["claims", "emailConfirmed", "firstName", "lastName", "screenName", "security", "user", "version"], Keys(json));
         Assert.Equal(["accessFailedCount", "hasPassword", "lockoutEnabled", "lockoutEnd", "twoFactorEnabled"], Keys(json.GetProperty("security")));
-        Assert.Equal(["type", "value"], Keys(json.GetProperty("claims")[0]));
+        Assert.Equal(["id", "type", "value"], Keys(json.GetProperty("claims")[0]));
         var list = await client.Browser.GetFromJsonAsync<JsonElement>("/api/admin/users?q=mary");
         Assert.Equal(["administrator", "createdAt", "email", "id", "name", "status"], Keys(list.GetProperty("items")[0]));
         Assert.DoesNotContain("PRIVATE-", json.ToString());

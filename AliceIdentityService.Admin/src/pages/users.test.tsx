@@ -36,8 +36,8 @@ const detail: AdminUserDetail = {
     accessFailedCount: 2,
   },
   claims: [
-    { type: 'ais_admin', value: 'false' },
-    { type: 'department', value: '<script>example</script>' },
+    { id: 1, type: 'ais_admin', value: 'false' },
+    { id: 2, type: 'department', value: '<script>example</script>' },
   ],
 };
 function json(value: unknown, status = 200) {
@@ -152,7 +152,7 @@ describe('live user directory', () => {
     await waitFor(() => expect(calls(fetch)).toHaveLength(2));
     expect(calls(fetch)[1].searchParams.get('q')).toBe('%_\\Smith John');
     expect(input).toHaveFocus();
-    expect(screen.getByRole('link', { name: /Actual <person>/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Actual <person>/ })).toBeInTheDocument();
     await userEvent.setup().type(input, 'x');
     await waitFor(() => expect(calls(fetch)).toHaveLength(3));
     expect(calls(fetch)[2].searchParams.get('q')).toBe('%_\\Smith Johnx');

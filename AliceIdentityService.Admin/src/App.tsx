@@ -15,6 +15,7 @@ import { Overview } from '@/pages/overview';
 import { AdminAccess } from '@/lib/admin-session';
 import { useAdminSession } from '@/lib/admin-context';
 import { initials } from '@/lib/person';
+import { ScopeDetail, ScopesPage } from '@/pages/scopes';
 import { UserDetail, UsersPage } from '@/pages/users';
 const ComponentsPage = lazy(() =>
   import('@/pages/components').then((module) => ({ default: module.ComponentsPage })),
@@ -120,8 +121,8 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 9 review</strong> · User account operations are live. Claim assignment
-            remains reserved for Step 10.
+            <strong>Step 10 review</strong> · Claims and scopes are live. Client management remains
+            reserved for Step 11.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>
@@ -133,7 +134,8 @@ export function AdminShell() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/users/:id" element={<UserDetail />} />
             <Route path="/clients" element={<PlannedPage title="Clients" step={11} />} />
-            <Route path="/scopes" element={<PlannedPage title="Scopes" step={10} />} />
+            <Route path="/scopes" element={<ScopesPage />} />
+            <Route path="/scopes/:id" element={<ScopeDetail />} />
             <Route
               path="/components"
               element={

@@ -857,3 +857,27 @@ h2 {
   font-size: 12px;
   margin: 0;
 }
+
+.claim-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 32rem;
+}
+.claim-table td:last-child {
+  min-width: 10rem;
+}
+.admin-user-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+.admin-user-form textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

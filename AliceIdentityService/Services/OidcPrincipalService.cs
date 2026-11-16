@@ -54,7 +54,7 @@ public sealed class OidcPrincipalService(SignInManager<User> signIn, IOpenIddict
         }
         foreach (var claim in principal.Claims)
         {
-            if (claim.Type == signIn.Options.ClaimsIdentity.SecurityStampClaimType || IsProtocolClaim(claim.Type))
+            if (claim.Type == signIn.Options.ClaimsIdentity.SecurityStampClaimType || AdminClaimRules.ProtocolOrSecret(claim.Type))
                 claim.SetDestinations([]);
             else
                 claim.SetDestinations(new[]

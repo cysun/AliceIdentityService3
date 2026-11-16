@@ -3,7 +3,6 @@ using AliceIdentityService.Data;
 using AliceIdentityService.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using OpenIddict.Abstractions;
 
@@ -11,42 +10,16 @@ namespace AliceIdentityService.Services;
 
 public sealed record AdminMutationOutcome(int Status, string? Id = null, bool SessionEnded = false, string? Error = null);
 
-public sealed class AdminUserMutationService(AisDbContext database, UserManager<User> users, TimeProvider clock,
+public sealed class AdminUserMutationService(AisDbContext database, UserManager<User> users, TimeProvider clock, AdminWriteGuard guard,
     IOpenIddictTokenManager tokens, IOpenIddictAuthorizationManager authorizations, ILogger<AdminUserMutationService> logger)
 {
     private sealed record Change(IdentityResult Result, bool Revoke = false);
     private static Change Invalid(string message) => new(IdentityResult.Failed(new IdentityError { Description = message }));
 
-    private async Task<IDbContextTransaction> BeginAsync(CancellationToken cancellationToken)
-    {
-        var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
-        try
-        {
-            // Serialize administrative writes across instances, including actor revalidation.
-            // Otherwise two admitted requests could lock/delete each other's administrators.
-            await database.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(7193402009)", cancellationToken);
-            database.ChangeTracker.Clear(); // Discard the Identity entities read by cookie authentication.
-            return transaction;
-        }
-        catch { await transaction.DisposeAsync(); throw; }
-    }
-
-    private async Task<AdminMutationOutcome?> CheckActorAsync(ClaimsPrincipal actor, CancellationToken cancellationToken)
-    {
-        var id = users.GetUserId(actor);
-        var user = await database.Users.AsNoTracking().SingleOrDefaultAsync(user => user.Id == id, cancellationToken);
-        var stamp = actor.FindFirstValue(users.Options.ClaimsIdentity.SecurityStampClaimType);
-        if (user is null || stamp is null || stamp != user.SecurityStamp || !user.EmailConfirmed || user.TwoFactorEnabled ||
-            user.LockoutEnabled && user.LockoutEnd > clock.GetUtcNow()) return new(401);
-        if (!await database.UserClaims.AnyAsync(claim => claim.UserId == id && claim.ClaimType == AisConstants.AdminClaim, cancellationToken))
-            return new(403);
-        return null;
-    }
-
     public async Task<AdminMutationOutcome> CreateAsync(ClaimsPrincipal actor, AdminCreateUserInput input, CancellationToken cancellationToken)
     {
-        await using var transaction = await BeginAsync(cancellationToken);
-        if (await CheckActorAsync(actor, cancellationToken) is { } denied) return denied;
+        await using var transaction = await guard.BeginAsync(cancellationToken);
+        if (await guard.CheckActorAsync(actor, cancellationToken) is { } denied) return denied;
         var email = input.Email.Trim();
         var normalizedEmail = users.NormalizeEmail(email);
         var normalizedName = users.NormalizeName(email);
@@ -129,11 +102,38 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
             return new(await users.DeleteAsync(user), true);
         }, cancellationToken);
 
+    public Task<AdminMutationOutcome> AddClaimAsync(ClaimsPrincipal actor, string id, AdminClaimInput input, CancellationToken cancellationToken) =>
+        ChangeAsync(actor, id, input.Version, "claim-add", async (user, _) =>
+        {
+            var type = input.Type.Trim();
+            var value = input.Value.Trim();
+            if (!AdminClaimRules.ValidType(type) || AdminClaimRules.ManagedByIdentity(type))
+                return Invalid("Use a custom claim type; identity and protocol claims are managed by the service.");
+            if (value.Any(char.IsControl)) return Invalid("Claim values cannot contain control characters.");
+            if (await database.UserClaims.AnyAsync(claim => claim.UserId == id && claim.ClaimType == type && claim.ClaimValue == value, cancellationToken))
+                return Invalid("This account already has that claim and value.");
+            database.UserClaims.Add(new IdentityUserClaim<string> { UserId = id, ClaimType = type, ClaimValue = value });
+            return new(await users.UpdateSecurityStampAsync(user), true);
+        }, cancellationToken);
+
+    public Task<AdminMutationOutcome> RemoveClaimAsync(ClaimsPrincipal actor, string id, int claimId, AdminUserVersionInput input, CancellationToken cancellationToken) =>
+        ChangeAsync(actor, id, input.Version, "claim-remove", async (user, actorId) =>
+        {
+            var claim = await database.UserClaims.SingleOrDefaultAsync(claim => claim.UserId == id && claim.Id == claimId, cancellationToken);
+            if (claim is null) return Invalid("This claim no longer exists. Reload the account.");
+            if (actorId == id && claim.ClaimType == AisConstants.AdminClaim &&
+                !await database.UserClaims.AnyAsync(other => other.UserId == id && other.ClaimType == AisConstants.AdminClaim && other.Id != claimId, cancellationToken))
+                return Invalid("You cannot remove your own last administrator claim.");
+            // Address a stored row so imported duplicate or null claims can be removed individually.
+            database.UserClaims.Remove(claim);
+            return new(await users.UpdateSecurityStampAsync(user), true);
+        }, cancellationToken);
+
     private async Task<AdminMutationOutcome> ChangeAsync(ClaimsPrincipal actor, string id, string version, string operation,
         Func<User, string, Task<Change>> change, CancellationToken cancellationToken)
     {
-        await using var transaction = await BeginAsync(cancellationToken);
-        if (await CheckActorAsync(actor, cancellationToken) is { } denied) return denied;
+        await using var transaction = await guard.BeginAsync(cancellationToken);
+        if (await guard.CheckActorAsync(actor, cancellationToken) is { } denied) return denied;
         var user = await users.FindByIdAsync(id);
         if (user is null) return new(404, Error: "This account no longer exists.");
         if (AdminUserVersion.For(user.Id, user.ConcurrencyStamp) != version) return Conflict();

@@ -72,7 +72,7 @@ public sealed class AdminUserService(AisDbContext database, TimeProvider clock)
         }).SingleAsync(cancellationToken);
         var claims = await database.UserClaims.AsNoTracking().Where(claim => claim.UserId == id)
             .OrderBy(claim => claim.ClaimType).ThenBy(claim => claim.Id)
-            .Select(claim => new AdminUserClaim(claim.ClaimType, claim.ClaimValue)).ToListAsync(cancellationToken);
+            .Select(claim => new AdminUserClaim(claim.ClaimType, claim.ClaimValue, claim.Id)).ToListAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return new(summary, profile.FirstName, profile.LastName, profile.ScreenName, profile.EmailConfirmed, profile.Security, claims, AdminUserVersion.For(id, profile.ConcurrencyStamp));
     }

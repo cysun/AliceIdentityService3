@@ -54,6 +54,14 @@ public sealed class AdminUsersController(AdminUserService users, AdminUserMutati
     public async Task<IActionResult> Delete(string id, AdminDeleteUserInput input, CancellationToken cancellationToken) =>
         await MutationResult(await mutations.DeleteAsync(User, id, input, cancellationToken));
 
+    [HttpPost("{id}/claims")]
+    public async Task<IActionResult> AddClaim(string id, AdminClaimInput input, CancellationToken cancellationToken) =>
+        await MutationResult(await mutations.AddClaimAsync(User, id, input, cancellationToken));
+
+    [HttpDelete("{id}/claims/{claimId:int}")]
+    public async Task<IActionResult> RemoveClaim(string id, int claimId, AdminUserVersionInput input, CancellationToken cancellationToken) =>
+        await MutationResult(await mutations.RemoveClaimAsync(User, id, claimId, input, cancellationToken));
+
     private async Task<IActionResult> MutationResult(AdminMutationOutcome outcome)
     {
         if (outcome.Status == 401) return Unauthorized();

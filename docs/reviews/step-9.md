@@ -1,6 +1,6 @@
 # Step 9 review — Administrative account operations
 
-Steps 1–8 are approved and committed (Step 8: `e5ef6eb`). Step 9 is implemented and **uncommitted for manual review**. Stop before Step 10.
+Steps 1–9 are reviewed and committed. Step 9 is commit `eb775d0`; its earlier uncommitted status is superseded. The checklist below records the completed Step 9 handoff. Step 10 is now authorized and documented in [its review](step-10.md).
 
 ## Delivered behavior
 
@@ -92,4 +92,4 @@ npm test --prefix AliceIdentityService.Admin -- src/pages/user-operations.test.t
 
 Verified for this handoff: **101 backend tests passed, none skipped; 54 frontend tests passed**. Frontend formatting/lint/TypeScript/build, backend format verification and solution build passed. Coverage includes every write's authorization/CSRF requirements, validation, overposting, duplicate creation, persisted search updates, optimistic concurrency, self-protection, all lock durations, password/confirmation changes, real cookie/code/refresh/reset-link invalidation, deletion and concurrent administrators. A PostgreSQL trigger that deliberately fails authorization revocation proves rollback of password/lock/delete and preceding token writes. The trigger exists only in its disposable test database.
 
-Browser verification used fictional accounts in a separate temporary database: real admin sign-in, a saved profile edit reflected in directory/details, Create/Lock/Delete dialog presentation, cancellation and deletion's disabled confirmation state. No browser console warnings/errors appeared. Credential and deletion submissions are covered by HTTP integration and UI tests; they remain in the manual checklist too. The verification server was stopped, its browser tab closed, and temporary databases/dump removed. Step 10 has not started.
+Browser verification used fictional accounts in a separate temporary database: real admin sign-in, a saved profile edit reflected in directory/details, Create/Lock/Delete dialog presentation, cancellation and deletion's disabled confirmation state. No browser console warnings/errors appeared. Credential and deletion submissions are covered by HTTP integration and UI tests; they remain in the manual checklist too. The verification server was stopped, its browser tab closed, and temporary databases/dump removed. Step 10 had not started at that handoff; see the current [Step 10 review](step-10.md).

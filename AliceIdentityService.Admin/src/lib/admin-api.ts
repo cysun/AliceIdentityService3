@@ -69,7 +69,7 @@ export type AdminUserDetail = {
     lockoutEnd: string | null;
     accessFailedCount: number;
   };
-  claims: { type: string | null; value: string | null }[];
+  claims: { id: number; type: string | null; value: string | null }[];
 };
 
 export async function getAdminJson<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -139,10 +139,27 @@ export async function mutateAdminJson(
       response.status,
       messages.length
         ? messages
-        : ['The request could not be validated. Reload the account and try again.'],
+        : ['The request could not be validated. Reload the details and try again.'],
     );
   }
   if (!response.headers.get('Content-Type')?.includes('application/json'))
     throw new Error('Unexpected administration response');
   return response.json() as Promise<AdminMutationResult>;
 }
+
+export type AdminScope = {
+  id: string;
+  name: string | null;
+  displayName: string | null;
+  description: string | null;
+  claims: string[];
+  resources: string[];
+  standard: boolean;
+  version: string;
+};
+export type AdminScopePage = {
+  items: AdminScope[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+};

@@ -20,6 +20,7 @@ import {
 } from '@/lib/admin-api';
 import { useAdminSession } from '@/lib/admin-context';
 import { initials } from '@/lib/person';
+import { UserClaims } from './user-claims';
 import { UserOperationButton } from './user-operations';
 
 const statuses = ['All statuses', 'Confirmed', 'Unconfirmed', 'Locked'];
@@ -362,22 +363,14 @@ export function UserDetail() {
               </section>
             </TabsContent>
             <TabsContent value="claims">
-              <section className="panel detail-panel">
-                <h2>Claims</h2>
-                {data.claims.length === 0 ? (
-                  <p>No additional claims.</p>
-                ) : (
-                  <dl className="detail-list">
-                    {data.claims.map((claim, index) => (
-                      <div key={index}>
-                        <dt>{claim.type ?? '(No type)'}</dt>
-                        <dd>{claim.value ?? '(No value)'}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-                <p>Claim management will be available in Step 10.</p>
-              </section>
+              <UserClaims
+                data={data}
+                onReload={() => setRevision((value) => value + 1)}
+                onSuccess={() => {
+                  setNotice('Claims updated.');
+                  setRevision((value) => value + 1);
+                }}
+              />
             </TabsContent>
             <TabsContent value="security">
               <section className="panel detail-panel">
