@@ -110,8 +110,8 @@ export function AdminShell() {
         </header>
         <div className="preview-note">
           <span>
-            <strong>Step 13 review</strong> · Staging and hardening are ready for review. AIS2
-            migration remains reserved for Step 14.
+            <strong>Step 14 review</strong> · AIS2 migration rehearsal is ready for review.
+            Production cutover remains reserved for Step 15.
           </span>
           <div>
             <a href="/Account/Login">Direct login</a>

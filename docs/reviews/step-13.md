@@ -1,6 +1,6 @@
 # Step 13 review — Staging and hardening
 
-Steps 1–12 are reviewed and committed; Step 12 is `954b5bd`. Step 13 is implemented and **uncommitted for manual review**. Stop before Step 14.
+Steps 1–13 are reviewed and committed. Step 13 is committed as `c3112fa`; earlier uncommitted-status wording is historical. Step 14 is authorized and documented in the [Step 14 review](step-14.md).
 
 ## Delivered behavior
 
@@ -37,7 +37,7 @@ Hosting tests cover rejected configurations, Staging and Production startup, IPv
 4. Exercise a representative public PKCE client and confidential client, including token refresh, userinfo and logout. Confirm discovery and generated email links use the staging HTTPS origin. Publish synthetic mail to the isolated staging queue; delivery testing, if desired, belongs to the separate mail service.
 5. Rehearse replacing and rolling back a staging-capable release using the guide. Preserve the database, configuration and entire certificate folder, including its `keys` subfolder. Confirm cookies, pending account links and refresh tokens survive. Do not delete or regenerate existing keys during deployment.
 6. Review logs for safe route/status/trace information without passwords, recipients, query strings, tokens, client secrets, cookies or bodies. Review Nginx's server-wide logging and restrict journal/file access and retention.
-7. Stop local verification servers and remove only disposable verification databases/queues/keys. Review this uncommitted step before proceeding to AIS2 migration.
+7. Stop local verification servers and remove only disposable verification databases/queues/keys. This review gate is complete; retain this checklist for future staging checks.
 
 ## Verification
 
@@ -49,4 +49,4 @@ With automatic certificates, the nested `keys` directory in `Application:Certifi
 
 The publish output contains the built admin UI and all six email templates, with no settings JSON, private certificates or migration source. The disposable databases, queues, releases, keys, cookies and dump were removed. Verification server ports 7443 and 9443 have no listeners. The source AIS2 database and private application settings were left unchanged.
 
-Nginx/systemd are not installed on the macOS verification machine, so their Linux execution, filesystem permissions, firewall and public TLS checks remain manual. Browser automation could not attach to the temporary self-signed HTTPS page; visual/CSP behavior remains in the manual checklist. No remote service was changed. Changes remain uncommitted, and Step 14 has not started.
+Nginx/systemd are not installed on the macOS verification machine, so their Linux execution, filesystem permissions, firewall and public TLS checks remain manual. Browser automation could not attach to the temporary self-signed HTTPS page; visual/CSP behavior remains in the manual checklist. No remote service was changed. Step 13 was subsequently reviewed and committed as `c3112fa`. Step 14 now follows in its own review record.

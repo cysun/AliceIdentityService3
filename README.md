@@ -1,6 +1,6 @@
 # Alice Identity Service 3
 
-AIS3 is being rebuilt in reviewable steps. **Steps 1–12 are approved and committed (Step 12: `954b5bd`). Step 13 is implemented and uncommitted for review. Step 14 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and RabbitMQ mail publication are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database. Step 13 adds staging hosting configuration, persistent keys and request hardening.
+AIS3 is being rebuilt in reviewable steps. **Steps 1–13 are approved and committed (Step 13: `c3112fa`). Step 14 is implemented and uncommitted for review. Step 15 has not started.** Direct/OIDC sign-in, registration, email confirmation, password recovery/change, profile editing, and RabbitMQ mail publication are connected. The admin shell shows the current administrator and real overview data. User search, pagination, filtering, details, account operations, claim assignment, scope definitions and client administration use the database. Staging hosting configuration, persistent keys and request hardening are approved. Step 14 adds an isolated AIS2 dump/restore rehearsal and validation reports.
 
 ## Projects
 
@@ -51,7 +51,7 @@ The `__Host-AIS3.Session` cookie is Secure, HttpOnly, SameSite=Lax, host-only, a
 
 Login and logout POSTs require antiforgery tokens. GET `/Account/Logout` only asks for confirmation. Return URLs must be local. The admin namespace, including built static assets, requires the existing AIS2 `ais_admin` claim. `/api/system/info` requires the same policy and returns 401/403 for unauthorized requests. The React shell loads the current administrator from `/api/admin/session` before displaying protected routes. Sign-out uses the existing Razor confirmation and antiforgery-protected POST.
 
-Use HTTPS, including in development. Development HTTP redirects to port 7443 by default (override with `HTTPS_PORT`); health endpoints remain accessible over HTTP for local probes. Forwarded headers trust only `127.0.0.1` and `::1` by default; configure `Hosting:TrustedProxies` only to replace these defaults with explicit proxy IPs. Staging/Production redirect to the configured public issuer port. Data Protection uses local defaults in development and a persistent encrypted key ring in deployed environments. AIS3 uses its own cookie name and does not import AIS2 browser sessions; AIS2 token continuity remains a Step 14 decision.
+Use HTTPS, including in development. Development HTTP redirects to port 7443 by default (override with `HTTPS_PORT`); health endpoints remain accessible over HTTP for local probes. Forwarded headers trust only `127.0.0.1` and `::1` by default; configure `Hosting:TrustedProxies` only to replace these defaults with explicit proxy IPs. Staging/Production redirect to the configured public issuer port. Data Protection uses local defaults in development and a persistent encrypted key ring in deployed environments. AIS3 uses its own cookie name and does not import AIS2 browser sessions. Step 14 proposes a planned reauthentication boundary; see the [migration policy](docs/migration.md#session-and-key-policy-for-review).
 
 ## OIDC
 
@@ -163,7 +163,13 @@ See the [Step 12 review](docs/reviews/step-12.md) for publication testing instru
 
 Step 13 adds Linux hosting examples for one Nginx/systemd-managed ASP.NET Core process. It validates the public origin/host, proxy trust, certificates and persistent encrypted Data Protection storage before accepting traffic. Cookies and account links retain a stable application name across releases; automatic certificate creation and reuse keep setup simple while preserving keys across deployments. Deployed responses add HSTS and browser security headers, and request failures return a generic response with private logs based on route templates and trace IDs.
 
-The [deployment guide](docs/deployment.md) covers private configuration, the staging sample, service permissions, local health probes, logging, persistent certificates and deployment/rollback. No SQL or database migration runs during startup. Staging uses isolated data and a separate RabbitMQ queue; production cutover remains gated by Steps 14–15. See the [Step 13 testing checklist](docs/reviews/step-13.md). **Stop for manual review before Step 14.**
+The [deployment guide](docs/deployment.md) covers private configuration, the staging sample, service permissions, local health probes, logging, persistent certificates and deployment/rollback. No SQL or database migration runs during startup. Staging uses isolated data and a separate RabbitMQ queue; production cutover remains gated by Steps 14–15. Step 13 is approved; retain its [staging checklist](docs/reviews/step-13.md) for deployment checks.
+
+## AIS2 migration rehearsal
+
+Step 14 adds opt-in dump/restore tests within the existing test project. A read-only AIS2 snapshot is restored into disposable databases; all public table counts/content fingerprints, sequence state and the shared schema are compared. The existing PopulateSchema.sql is applied without running CreateSchema.sql or bootstrap. Separate imported fixtures exercise legacy password hashes, administrator access and public/confidential OIDC clients. Reports contain aggregate evidence without account rows or secrets.
+
+The [migration guide](docs/migration.md) covers commands, private reports, real-client review, the proposed reauthentication policy and the rollback boundary. The [Step 14 review](docs/reviews/step-14.md) records verification and manual testing instructions. No source AIS2 data, private configuration, certificates, SQL scripts or deployed services are changed. **Stop for manual review before Step 15.**
 
 ## Configuration and database
 
@@ -202,4 +208,4 @@ dotnet run --project AliceIdentityService
 
 Stop the dev runner first because both use port 7443. Rider can run the same ASP.NET Core project after the React build: `/Account` serves Razor pages and `/admin` serves the compiled SPA from `wwwroot/admin`. The SPA is real React code; its identity, overview, user directory, details, account operations, claims, scopes and clients are live. The review client is a separate test application and is not part of the AIS3 solution or deployment. To publish AIS3, run `dotnet publish AliceIdentityService -c Release -o artifacts/preview` after the React build. Provision appsettings.json separately in that directory or use environment variables: configuration is excluded from publish output. The published application needs no Node runtime.
 
-Staging/Production hosting requires the explicit configuration documented above. See the [Step 13 review checklist](docs/reviews/step-13.md) and [implementation plan](docs/implementation-plan.md). Stop here for review before implementing Step 14.
+Staging/Production hosting requires the explicit configuration documented above. See the [Step 13 review checklist](docs/reviews/step-13.md) and [implementation plan](docs/implementation-plan.md). See the [Step 14 review](docs/reviews/step-14.md); stop for manual review before implementing Step 15.

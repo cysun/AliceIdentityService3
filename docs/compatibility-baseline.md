@@ -49,3 +49,12 @@ Step 2 uses ignored appsettings.json files and explicit bootstrap command inputs
 - Confirmation uses a purpose-specific AIS3 Identity/Data Protection token with a 24-hour lifetime. Confirmation requires POST/antiforgery and rotates the stamp; no automatic login is created. AIS2-issued email tokens are not promised to survive the switch.
 - AliceMailService's wire contract is unchanged: a MessagePack `List<byte[]>`, with each byte array a complete MIME message. The sender produces text and HTML confirmation bodies, publishes persistent messages to the durable default-exchange queue, and awaits mandatory publisher confirmation. Existing AliceMailService code consumed the message and delivered it to local SMTP during verification.
 - No schema, SQL, migration, or AliceMailService source changes. Mail operations and real deployment configuration remain Step 12; the host remains Development/Testing-only.
+
+## Step 14 migration rehearsal
+
+Steps 1–13, including staging hosting, are now approved and committed. The [Step 14 review](reviews/step-14.md) records the current migration evidence; the earlier step sections above describe their original verification boundaries.
+
+- The local AIS2 snapshot's 12 public tables, two identity sequences and shared catalog match disposable restores, including hashes, stamps, client settings, scopes and old protocol rows. Applying PopulateSchema.sql preserves data and migration history. No conversion or schema upgrade is needed.
+- Synthetic legacy-compatible accounts and clients cross a dump/restore boundary before direct/admin sign-in and public S256/confidential OIDC verification. Real deployed credentials and client expectations remain manual review items.
+- AIS3's separate cookie/key-ring purposes and required `auth_time` mean a database/certificate restore alone does not establish old-session/grant continuity. The [migration guide](migration.md) proposes planned reauthentication and separate AIS3-owned keys for approval, while preserving AIS2 state for rollback.
+- Production cutover remains Step 15; Step 14 changes stay uncommitted pending manual review.
