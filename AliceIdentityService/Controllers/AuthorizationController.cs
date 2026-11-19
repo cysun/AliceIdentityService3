@@ -30,9 +30,21 @@ public sealed class AuthorizationController(SignInManager<User> signIn, IOpenIdd
         if (!await applications.HasConsentTypeAsync(application, ConsentTypes.Implicit) || request.HasPromptValue(PromptValues.Consent))
             return ProtocolError(Errors.ConsentRequired, "This client requires a consent flow that is not available.");
 
+        string? requiredSubject = null;
+        if (request.IdTokenHint is not null)
+        {
+            // At the authorization endpoint this scheme returns OpenIddict's validated ID token hint.
+            var hint = await HttpContext.AuthenticateAsync(Scheme);
+            requiredSubject = hint.Principal?.GetClaim(Claims.Subject);
+            if (!hint.Succeeded || string.IsNullOrEmpty(requiredSubject))
+                return ProtocolError(Errors.InvalidRequest, "The ID token hint is invalid.");
+        }
+
         var session = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        var wrongAccount = session.Succeeded && requiredSubject is not null &&
+            !string.Equals(signIn.UserManager.GetUserId(session.Principal!), requiredSubject, StringComparison.Ordinal);
         var issued = session.Properties?.IssuedUtc;
-        var challenge = !session.Succeeded || issued is null || request.HasPromptValue(PromptValues.Login) ||
+        var challenge = !session.Succeeded || issued is null || wrongAccount || request.HasPromptValue(PromptValues.Login) ||
             request.HasPromptValue(PromptValues.SelectAccount) || request.MaxAge is 0 ||
             (request.MaxAge is not null && (DateTimeOffset.UtcNow - issued!.Value).TotalSeconds > request.MaxAge.Value);
         if (challenge)
@@ -40,7 +52,8 @@ public sealed class AuthorizationController(SignInManager<User> signIn, IOpenIdd
             if (request.HasPromptValue(PromptValues.None)) return ProtocolError(Errors.LoginRequired, "Sign-in is required.");
             IEnumerable<KeyValuePair<string, StringValues>> values = Request.HasFormContentType ? await Request.ReadFormAsync() : Request.Query;
             var continuation = Request.PathBase + Request.Path + QueryString.Create(values);
-            var context = loginContext.Create(request.ClientId!, continuation);
+            var context = loginContext.Create(request.ClientId!, continuation, requiredSubject);
+            if (wrongAccount) ModelState.AddModelError(string.Empty, "Sign in with the account requested by your application.");
             return View("~/Views/Account/Account.cshtml", new AccountPageModel("Login",
                 await applications.GetDisplayNameAsync(application) ?? request.ClientId, context)
             {

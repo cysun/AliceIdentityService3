@@ -259,6 +259,22 @@ public sealed class AdminUserOperationTests
     }
 
     [PostgresFact]
+    public async Task AdministratorsCanConfirmAPendingRegistrationAfterSettingItsPassword()
+    {
+        await using var client = await OidcTestClient.Create();
+        await Login(client.Browser);
+        var users = client.Database.Services.GetRequiredService<UserManager<User>>();
+        var pending = new User { UserName = "pending@example.test", Email = "pending@example.test", FirstName = "Pending", LastName = "User", ScreenName = "Pending User" };
+        Assert.True((await users.CreateAsync(pending)).Succeeded);
+        var path = "/" + pending.Id;
+        Assert.Equal(HttpStatusCode.BadRequest, (await Write(client.Browser, path + "/profile", Profile(pending))).StatusCode);
+        Assert.False((await Read(client, pending.Id)).EmailConfirmed);
+        await Ok(await Write(client.Browser, path + "/password", new { version = Version(pending), password = NewPassword, confirmPassword = NewPassword }));
+        await Ok(await Write(client.Browser, path + "/profile", Profile(await Read(client, pending.Id))));
+        Assert.True((await Read(client, pending.Id)).EmailConfirmed);
+    }
+
+    [PostgresFact]
     public async Task DeleteRequiresExactConfirmationAndSupportsLegacyAccountsWithoutEmail()
     {
         await using var client = await OidcTestClient.Create();

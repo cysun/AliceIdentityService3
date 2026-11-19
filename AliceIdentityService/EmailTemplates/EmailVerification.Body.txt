@@ -1,4 +1,4 @@
-Please confirm your Alice Identity Service email address by opening this link and choosing Confirm email:
+Open the link below to choose your password and confirm your Alice Identity Service email address.
 
 {{link}}
 

@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using OpenIddict.Abstractions;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 using OpenIddict.Server;
 using Microsoft.AspNetCore.Cors.Infrastructure;
@@ -31,6 +32,9 @@ public static class OpenIddictExtensions
             options.SetRefreshTokenLifetime(TimeSpan.FromDays(14));
             options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
             options.DisableSlidingRefreshTokenExpiration();
+            options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(handler => handler
+                .UseScopedHandler<ApplyScopeResources>()
+                .SetOrder(OpenIddictServerHandlers.PrepareAccessTokenPrincipal.Descriptor.Order - 1));
             // Retain AIS2's signed JWT access tokens for independently validating APIs.
             options.DisableAccessTokenEncryption();
             options.UseAspNetCore().EnableAuthorizationEndpointPassthrough()
@@ -78,5 +82,19 @@ public static class OpenIddictExtensions
             options.Issuer = issuer;
         });
         return services;
+    }
+
+    private sealed class ApplyScopeResources(IOpenIddictScopeManager scopes)
+        : IOpenIddictServerHandler<OpenIddictServerEvents.ProcessSignInContext>
+    {
+        public async ValueTask HandleAsync(OpenIddictServerEvents.ProcessSignInContext context)
+        {
+            // Replace even an empty set after OpenIddict restores private claims from the grant.
+            var principal = context.Principal!;
+            var resources = new List<string>();
+            await foreach (var resource in scopes.ListResourcesAsync(principal.GetScopes(), context.CancellationToken))
+                resources.Add(resource);
+            principal.SetResources(resources);
+        }
     }
 }

@@ -26,9 +26,6 @@ public sealed class OidcPrincipalService(SignInManager<User> signIn, IOpenIddict
         principal.SetClaim(Claims.Nickname, user.ScreenName);
         principal.SetClaim(Claims.AuthenticationTime, authenticationTime);
         principal.SetScopes(grantedScopes);
-        var resources = new List<string>();
-        await foreach (var resource in scopes.ListResourcesAsync(principal.GetScopes())) resources.Add(resource);
-        principal.SetResources(resources);
 
         var identityClaims = new HashSet<string>(StringComparer.Ordinal);
         var accessClaims = new HashSet<string>(StringComparer.Ordinal);

@@ -41,7 +41,8 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
             var user = await signIn.UserManager.FindByNameAsync(input.Email.Trim());
             // AIS3 has no two-factor challenge yet. Never downgrade an imported
             // account with two-factor enabled to password-only authentication.
-            if (user is not null && !user.TwoFactorEnabled)
+            if (user is not null && !user.TwoFactorEnabled &&
+                (validated?.Request.RequiredSubject is not { } requiredSubject || user.Id == requiredSubject))
             {
                 var result = await signIn.PasswordSignInAsync(user, input.Password, input.RememberMe, lockoutOnFailure: true);
                 if (result.Succeeded) return LocalRedirect(validated is null ? input.ReturnUrl : OidcLoginContext.AfterPasswordSignIn(validated.Request));
@@ -164,9 +165,6 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
             }
             catch (MailDeliveryException) { return MailUnavailable(validated, input.OidcContext); }
         }
-        input.Password = input.ConfirmPassword = string.Empty;
-        ModelState.SetModelValue(nameof(input.Password), string.Empty, string.Empty);
-        ModelState.SetModelValue(nameof(input.ConfirmPassword), string.Empty, string.Empty);
         return View("Account", new AccountPageModel("Register", validated?.ApplicationName, input.OidcContext) { Registration = input });
     }
 
@@ -194,25 +192,33 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
     }
 
     [HttpGet("ConfirmEmail")]
-    public async Task<IActionResult> ConfirmEmail([FromQuery] ConfirmEmailInputModel input)
+    public async Task<IActionResult> ConfirmEmail([FromQuery] AccountEmailLinkModel link)
     {
-        if (!ModelState.IsValid || !await registration.CanConfirmAsync(input)) return ConfirmationInvalid();
-        var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
-        return View("Account", new AccountPageModel("ConfirmEmail", validated?.ApplicationName, validated is null ? null : input.OidcContext)
-        {
-            Confirmation = input
-        });
+        if (!ModelState.IsValid || !await registration.CanConfirmAsync(link)) return ConfirmationInvalid();
+        return await PasswordLinkPage("ConfirmEmail", link);
     }
 
-    [HttpPost("ConfirmEmail"), ActionName("ConfirmEmail"), RequestSizeLimit(32 * 1024)]
-    public async Task<IActionResult> ConfirmEmailSubmit(ConfirmEmailInputModel input)
+    [HttpPost("ConfirmEmail"), ActionName("ConfirmEmail"), RequestSizeLimit(48 * 1024)]
+    public async Task<IActionResult> ConfirmEmailSubmit(SetPasswordInputModel input)
     {
-        if (!ModelState.IsValid || !await registration.ConfirmAsync(input, HttpContext.RequestAborted)) return ConfirmationInvalid();
-        var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
-        return View("Account", new AccountPageModel("EmailConfirmed", validated?.ApplicationName, validated is null ? null : input.OidcContext)
+        if (ModelState.IsValid)
         {
-            ContinuationExpired = input.OidcContext is not null && validated is null
-        });
+            var result = await registration.ConfirmAsync(input, HttpContext.RequestAborted);
+            if (result.Succeeded)
+            {
+                var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
+                return View("Account", new AccountPageModel("EmailConfirmed", validated?.ApplicationName, validated is null ? null : input.OidcContext)
+                {
+                    ContinuationExpired = input.OidcContext is not null && validated is null
+                });
+            }
+            if (result.Errors.Any(error => error.Code is "InvalidToken" or "ConcurrencyFailure")) return ConfirmationInvalid();
+            foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
+        }
+        else if (!input.HasValidLinkFields() || !await registration.CanConfirmAsync(input)) return ConfirmationInvalid();
+        input.Password = input.ConfirmPassword = string.Empty;
+        ClearPasswords(nameof(input.Password), nameof(input.ConfirmPassword));
+        return await PasswordLinkPage("ConfirmEmail", input);
     }
 
     private IActionResult CheckEmail(LoginContextDetails? validated, string? context) =>
@@ -259,18 +265,17 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
     }
 
     [HttpGet("ResetPassword")]
-    public async Task<IActionResult> ResetPassword([FromQuery] ResetPasswordLinkModel link)
+    public async Task<IActionResult> ResetPassword([FromQuery] AccountEmailLinkModel link)
     {
         if (!ModelState.IsValid || await recovery.FindResetUserAsync(link) is null) return ResetInvalid();
-        return await ResetPage(new() { UserId = link.UserId, Code = link.Code, OidcContext = link.OidcContext });
+        return await PasswordLinkPage("ResetPassword", link);
     }
 
     [HttpPost("ResetPassword"), ActionName("ResetPassword"), RequestSizeLimit(48 * 1024)]
-    public async Task<IActionResult> ResetPasswordSubmit(ResetPasswordInputModel input)
+    public async Task<IActionResult> ResetPasswordSubmit(SetPasswordInputModel input)
     {
         // Validate the link independently of password errors before redisplaying it.
-        if (string.IsNullOrEmpty(input.UserId) || input.UserId.Length > 256 || string.IsNullOrEmpty(input.Code) ||
-            input.Code.Length > 4000 || input.OidcContext?.Length > 20000 || await recovery.FindResetUserAsync(input) is null)
+        if (!input.HasValidLinkFields() || await recovery.FindResetUserAsync(input) is null)
             return ResetInvalid();
         if (ModelState.IsValid)
         {
@@ -290,15 +295,15 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
         }
         input.Password = input.ConfirmPassword = string.Empty;
         ClearPasswords(nameof(input.Password), nameof(input.ConfirmPassword));
-        return await ResetPage(input);
+        return await PasswordLinkPage("ResetPassword", input);
     }
 
-    private async Task<IActionResult> ResetPage(ResetPasswordInputModel input)
+    private async Task<IActionResult> PasswordLinkPage(string page, AccountEmailLinkModel link)
     {
-        var validated = input.OidcContext is not null ? await oidcContext.ReadAsync(input.OidcContext) : null;
-        return View("Account", new AccountPageModel("ResetPassword", validated?.ApplicationName, validated is null ? null : input.OidcContext)
+        var validated = link.OidcContext is not null ? await oidcContext.ReadAsync(link.OidcContext) : null;
+        return View("Account", new AccountPageModel(page, validated?.ApplicationName, validated is null ? null : link.OidcContext)
         {
-            ResetPassword = input
+            PasswordLink = link
         });
     }
 

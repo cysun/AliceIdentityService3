@@ -221,21 +221,13 @@ public sealed class AdminClaimScopeTests
     {
         await using var client = await OidcTestClient.Create();
         var issued = await client.Tokens();
-        // A separate service provider represents another application instance with its own caches.
-        await using var otherHost = new AuthenticationFactory(client.Database.Db.Database.GetConnectionString()!);
-        async Task<ClaimsPrincipal> OtherHostPrincipal()
-        {
-            await using var services = otherHost.Services.CreateAsyncScope();
-            var user = (await services.ServiceProvider.GetRequiredService<UserManager<User>>().FindByEmailAsync(OidcTestClient.Email))!;
-            return await services.ServiceProvider.GetRequiredService<OidcPrincipalService>().CreateAsync(user, ["department"], 0);
-        }
-        Assert.Contains("department-api", (await OtherHostPrincipal()).GetResources());
-        var scope = (await client.Browser.GetFromJsonAsync<AdminScopePage>("/api/admin/scopes?q=department"))!.Items.Single();
-        await Ok(await Write(client.Browser, "scopes/" + scope.Id, ScopeInput("department", ["email"], ["new-api"], scope.Version)));
-        var otherPrincipal = await OtherHostPrincipal();
-        Assert.Contains("new-api", otherPrincipal.GetResources());
-        Assert.DoesNotContain("department-api", otherPrincipal.GetResources());
-        Assert.DoesNotContain(Destinations.IdentityToken, otherPrincipal.FindFirst("department")!.GetDestinations());
+        Assert.Contains("department-api", new JsonWebToken(issued.GetProperty("access_token").GetString()).Audiences);
+        // Change mappings on a second host so the token issuer must observe the persisted edit.
+        await using var adminHost = new AuthenticationFactory(client.Database.Db.Database.GetConnectionString()!);
+        using var admin = adminHost.Browser();
+        await Login(admin);
+        var scope = (await admin.GetFromJsonAsync<AdminScopePage>("/api/admin/scopes?q=department"))!.Items.Single();
+        await Ok(await Write(admin, "scopes/" + scope.Id, ScopeInput("department", ["email"], ["new-api"], scope.Version)));
         var info = await (await client.UserInfo(issued.GetProperty("access_token").GetString()!)).Content.ReadFromJsonAsync<JsonElement>();
         Assert.False(info.TryGetProperty("department", out _));
         var refreshed = await client.Refresh(issued.GetProperty("refresh_token").GetString()!);
@@ -249,6 +241,15 @@ public sealed class AdminClaimScopeTests
         Assert.DoesNotContain("department-api", access.Audiences);
         Assert.False(identity.TryGetClaim("AspNet.Identity.SecurityStamp", out _));
         Assert.False(identity.TryGetClaim("oi_scopes", out _));
+        var outstandingCode = await client.Code();
+        var edited = (await ScopeDetail(admin, scope.Id))!;
+        await Ok(await Write(admin, "scopes/" + scope.Id, ScopeInput("department", ["email"], [], edited.Version)));
+        foreach (var response in new[] { await client.Refresh(tokens.GetProperty("refresh_token").GetString()!), await client.Redeem(outstandingCode) })
+        {
+            await Ok(response);
+            var updated = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Empty(new JsonWebToken(updated.GetProperty("access_token").GetString()).Audiences);
+        }
         // Already-issued self-contained JWT content does not change.
         Assert.Equal("Computing", new JsonWebToken(issued.GetProperty("access_token").GetString()).GetClaim("department").Value);
     }

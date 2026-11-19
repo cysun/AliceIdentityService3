@@ -10,7 +10,7 @@ public sealed class ForgotPasswordInputModel
     public string? OidcContext { get; set; }
 }
 
-public class ResetPasswordLinkModel
+public class AccountEmailLinkModel
 {
     [Required, StringLength(256)]
     public string UserId { get; set; } = string.Empty;
@@ -18,9 +18,12 @@ public class ResetPasswordLinkModel
     public string Code { get; set; } = string.Empty;
     [StringLength(20000)]
     public string? OidcContext { get; set; }
+
+    public bool HasValidLinkFields() => UserId is { Length: > 0 and <= 256 } &&
+        Code is { Length: > 0 and <= 4000 } && OidcContext is not { Length: > 20000 };
 }
 
-public sealed class ResetPasswordInputModel : ResetPasswordLinkModel
+public sealed class SetPasswordInputModel : AccountEmailLinkModel
 {
     [Required, StringLength(4096), Display(Name = "New password")]
     public string Password { get; set; } = string.Empty;

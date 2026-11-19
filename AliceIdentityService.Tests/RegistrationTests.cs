@@ -42,8 +42,6 @@ public sealed class RegistrationTests
         ["Email"] = Email,
         ["FirstName"] = "New",
         ["LastName"] = "User",
-        ["Password"] = Password,
-        ["ConfirmPassword"] = Password,
         ["OidcContext"] = context ?? ""
     };
 
@@ -59,7 +57,16 @@ public sealed class RegistrationTests
     private static Dictionary<string, string> Confirmation(string path) => QueryHelpers.ParseQuery(new Uri("https://localhost" + path).Query)
         .ToDictionary(pair => pair.Key, pair => pair.Value.ToString());
 
-    private static Task<HttpResponseMessage> Confirm(HttpClient browser, string path) => Post(browser, "ConfirmEmail", Confirmation(path), path);
+    private static Dictionary<string, string> ConfirmationFields(string path, string password, string? confirmPassword = null)
+    {
+        var fields = Confirmation(path);
+        fields["Password"] = password;
+        fields["ConfirmPassword"] = confirmPassword ?? password;
+        return fields;
+    }
+
+    private static Task<HttpResponseMessage> Confirm(HttpClient browser, string path, string password = Password, string? confirmPassword = null)
+        => Post(browser, "ConfirmEmail", ConfirmationFields(path, password, confirmPassword), path);
 
     private static async Task<PostgresTestDatabase> Database()
     {
@@ -78,6 +85,7 @@ public sealed class RegistrationTests
         var mail = new CapturedAccountMail();
         using var factory = Factory(database, mail);
         using var browser = factory.Browser();
+        Assert.DoesNotContain("type=\"password\"", await browser.GetStringAsync("/Account/Register"));
         var result = await Post(browser, "Register", Input());
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         var html = await result.Content.ReadAsStringAsync();
@@ -86,6 +94,7 @@ public sealed class RegistrationTests
         Assert.False(result.Headers.Contains("Set-Cookie"));
         var user = await database.Db.Users.AsNoTracking().SingleAsync();
         Assert.False(user.EmailConfirmed);
+        Assert.Null(user.PasswordHash);
         Assert.True(user.LockoutEnabled);
         Assert.Equal("New User", user.ScreenName);
         Assert.Empty(await database.Db.UserClaims.ToListAsync());
@@ -94,10 +103,11 @@ public sealed class RegistrationTests
         Assert.Equal(Email, message.Email);
         Assert.DoesNotContain(message.Path, html);
         var confirmPage = await browser.GetAsync(message.Path);
+        Assert.Contains("autocomplete=\"new-password\"", await confirmPage.Content.ReadAsStringAsync());
         Assert.True(confirmPage.Headers.CacheControl!.NoStore);
         Assert.Equal("no-referrer", confirmPage.Headers.GetValues("Referrer-Policy").Single());
         Assert.False((await database.Db.Users.AsNoTracking().SingleAsync()).EmailConfirmed);
-        Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsync("/Account/ConfirmEmail", new FormUrlEncodedContent(Confirmation(message.Path)))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsync("/Account/ConfirmEmail", new FormUrlEncodedContent(ConfirmationFields(message.Path, Password)))).StatusCode);
         var confirmed = await Confirm(browser, message.Path);
         Assert.Contains("Email confirmed", await confirmed.Content.ReadAsStringAsync());
         Assert.False(confirmed.Headers.Contains("Set-Cookie"));
@@ -110,7 +120,7 @@ public sealed class RegistrationTests
     }
 
     [PostgresFact]
-    public async Task ValidationClearsPasswordsAndMissingAntiforgeryCannotCreateOrResend()
+    public async Task RegistrationValidatesProfileFieldsAndConfirmationRequiresAValidNewPassword()
     {
         await using var database = await Database();
         var mail = new CapturedAccountMail();
@@ -118,18 +128,53 @@ public sealed class RegistrationTests
         using var browser = factory.Browser();
         foreach (var route in new[] { "Register", "ResendConfirmation", "ConfirmEmail" })
             Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsync("/Account/" + route, new FormUrlEncodedContent(Input()))).StatusCode);
-        foreach (var (field, value) in new[] { ("Email", "bad"), ("FirstName", " "), ("LastName", new string('n', 256)), ("ConfirmPassword", "different"), ("Password", "weak") })
+        foreach (var (field, value) in new[] { ("Email", "bad"), ("FirstName", " "), ("LastName", new string('n', 256)) })
         {
             var input = Input(); input[field] = value;
-            if (field == "Password") input["ConfirmPassword"] = value;
             var response = await Post(browser, "Register", input);
             var html = await response.Content.ReadAsStringAsync();
             Assert.Contains("validation-errors", html);
-            Assert.DoesNotContain("value=\"" + Password, html);
-            Assert.DoesNotContain("value=\"weak", html);
         }
         Assert.Empty(await database.Db.Users.ToListAsync());
         Assert.Empty(mail.Messages);
+        await Post(browser, "Register", Input());
+        var path = Assert.Single(mail.Messages).Path;
+        var pending = await database.Db.Users.AsNoTracking().SingleAsync();
+        foreach (var (password, repeat) in new[] { ("", ""), (Password, "different"), ("weak", "weak") })
+        {
+            var response = await Confirm(browser, path, password, repeat);
+            var html = await response.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Contains("validation-summary-errors", html);
+            Assert.DoesNotContain("value=\"" + Password, html);
+            Assert.DoesNotContain("value=\"weak", html);
+            var current = await database.Db.Users.AsNoTracking().SingleAsync();
+            Assert.False(current.EmailConfirmed);
+            Assert.Null(current.PasswordHash);
+            Assert.Equal(pending.SecurityStamp, current.SecurityStamp);
+        }
+        Assert.Contains("Email confirmed", await (await Confirm(browser, path)).Content.ReadAsStringAsync());
+    }
+
+    [PostgresFact]
+    public async Task ConfirmingALegacyPendingAccountReplacesItsPreviousPassword()
+    {
+        await using var database = await Database();
+        var users = database.Services.GetRequiredService<UserManager<User>>();
+        var pending = new User { UserName = Email, Email = Email, FirstName = "Legacy", LastName = "User", ScreenName = "Legacy User" };
+        const string previousPassword = "Previous-Test-Password-42!";
+        Assert.True((await users.CreateAsync(pending, previousPassword)).Succeeded);
+        var mail = new CapturedAccountMail();
+        using var factory = Factory(database, mail);
+        using var browser = factory.Browser();
+        await Post(browser, "Register", Input());
+        var path = Assert.Single(mail.Messages).Path;
+        Assert.Contains("Email confirmed", await (await Confirm(browser, path)).Content.ReadAsStringAsync());
+        var confirmed = await database.Db.Users.AsNoTracking().SingleAsync();
+        Assert.True(confirmed.EmailConfirmed);
+        Assert.True(await users.CheckPasswordAsync(confirmed, Password));
+        Assert.False(await users.CheckPasswordAsync(confirmed, previousPassword));
+        Assert.Equal(HttpStatusCode.BadRequest, (await browser.GetAsync(path)).StatusCode);
     }
 
     [PostgresFact]
@@ -214,7 +259,7 @@ public sealed class RegistrationTests
         var login = await (await client.Authorize()).Content.ReadAsStringAsync();
         var context = OidcTestClient.Field(login, "OidcContext");
         var registerPath = "/Account/Register?context=" + Uri.EscapeDataString(context);
-        var invalid = Input(context); invalid["ConfirmPassword"] = "wrong";
+        var invalid = Input(context); invalid["FirstName"] = "";
         var errorHtml = await (await Post(client.Browser, "Register", invalid, registerPath)).Content.ReadAsStringAsync();
         Assert.Contains("account-shell oidc", errorHtml);
         Assert.Equal(context, OidcTestClient.Field(errorHtml, "OidcContext"));
@@ -262,6 +307,34 @@ public sealed class RegistrationTests
         Assert.All(results, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
         Assert.Single(await database.Db.Users.ToListAsync());
         Assert.Single(mail.Messages);
+    }
+
+    [PostgresFact]
+    public async Task ConcurrentConfirmationsActivateOnlyTheWinningPassword()
+    {
+        await using var database = await Database();
+        var mail = new CapturedAccountMail();
+        using var factory = Factory(database, mail);
+        using var first = factory.Browser();
+        using var second = factory.Browser();
+        await Post(first, "Register", Input());
+        var path = Assert.Single(mail.Messages).Path;
+        const string secondPassword = "Second-Test-Password-42!";
+        var firstFields = ConfirmationFields(path, Password);
+        var secondFields = ConfirmationFields(path, secondPassword);
+        firstFields["__RequestVerificationToken"] = OidcTestClient.Field(await first.GetStringAsync(path), "__RequestVerificationToken");
+        secondFields["__RequestVerificationToken"] = OidcTestClient.Field(await second.GetStringAsync(path), "__RequestVerificationToken");
+
+        var results = await Task.WhenAll(
+            first.PostAsync("/Account/ConfirmEmail", new FormUrlEncodedContent(firstFields)),
+            second.PostAsync("/Account/ConfirmEmail", new FormUrlEncodedContent(secondFields)));
+        Assert.Single(results, result => result.StatusCode == HttpStatusCode.OK);
+        Assert.Single(results, result => result.StatusCode == HttpStatusCode.BadRequest);
+        var confirmed = await database.Db.Users.AsNoTracking().SingleAsync();
+        var users = database.Services.GetRequiredService<UserManager<User>>();
+        Assert.True(confirmed.EmailConfirmed);
+        Assert.Equal(results[0].IsSuccessStatusCode, await users.CheckPasswordAsync(confirmed, Password));
+        Assert.Equal(results[1].IsSuccessStatusCode, await users.CheckPasswordAsync(confirmed, secondPassword));
     }
 
     [PostgresFact]

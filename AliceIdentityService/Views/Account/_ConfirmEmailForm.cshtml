@@ -1,8 +1,9 @@
-@model ConfirmEmailInputModel
+@model AccountEmailLinkModel
 <form asp-controller="Account" asp-action="ConfirmEmail" method="post" class="fields">
     <input type="hidden" asp-for="UserId" />
     <input type="hidden" asp-for="Code" />
     <input type="hidden" asp-for="OidcContext" />
-    <p>Confirm that you requested this account and want to use this email address with Alice Identity Service.</p>
-    <button type="submit" class="primary-button">Confirm email <span aria-hidden="true">→</span></button>
+    <div asp-validation-summary="All" class="validation-errors" role="alert"></div>
+    <partial name="~/Views/Account/_NewPasswordFields.cshtml" />
+    <button type="submit" class="primary-button">Set password and confirm email <span aria-hidden="true">→</span></button>
 </form>

@@ -8,7 +8,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace AliceIdentityService.Services;
 
-public sealed record ValidatedLoginContext(string ClientId, string AuthorizationUrl);
+public sealed record ValidatedLoginContext(string ClientId, string AuthorizationUrl, string? RequiredSubject = null);
 public sealed record LoginContextDetails(string ApplicationName, ValidatedLoginContext Request);
 
 // Only the validated authorization endpoint can create this ten-minute continuation.
@@ -17,8 +17,8 @@ public sealed class OidcLoginContext(IDataProtectionProvider protection, IOpenId
 {
     private readonly ITimeLimitedDataProtector protector = protection.CreateProtector("AIS3.OidcLoginContext.v1").ToTimeLimitedDataProtector();
 
-    public string Create(string clientId, string authorizationUrl) =>
-        protector.Protect(JsonSerializer.Serialize(new ValidatedLoginContext(clientId, authorizationUrl)), TimeSpan.FromMinutes(10));
+    public string Create(string clientId, string authorizationUrl, string? requiredSubject = null) =>
+        protector.Protect(JsonSerializer.Serialize(new ValidatedLoginContext(clientId, authorizationUrl, requiredSubject)), TimeSpan.FromMinutes(10));
 
     public async Task<LoginContextDetails?> ReadAsync(string token)
     {

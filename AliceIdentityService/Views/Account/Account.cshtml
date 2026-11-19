@@ -48,7 +48,7 @@
                             "Register" => "One account for your connected applications.",
                             "ResendConfirmation" => "Request a new link to confirm your email address.",
                             "CheckEmail" => "If this address needs confirmation, an email will arrive shortly. Check your spam folder too.",
-                            "ConfirmEmail" => "One more step to activate your account.",
+                            "ConfirmEmail" => "Choose a password to activate your account.",
                             "EmailConfirmed" => "Your email is confirmed. You can now sign in.",
                             "ConfirmationInvalid" => "This link is invalid, expired, or already used. Sign in or request a new confirmation email.",
                             "MailUnavailable" => "We could not queue the confirmation email. Your account remains unconfirmed. Wait a minute, then request another email.",
@@ -79,7 +79,7 @@
                 }
                 else if (Model.Page == "ConfirmEmail")
                 {
-                    <partial name="~/Views/Account/_ConfirmEmailForm.cshtml" model="Model.Confirmation" />
+                    <partial name="~/Views/Account/_ConfirmEmailForm.cshtml" model="Model.PasswordLink" />
                 }
                 else if (Model.Page is "CheckEmail" or "MailUnavailable" or "ConfirmationInvalid")
                 {
@@ -156,7 +156,7 @@
                 }
                 else if (Model.Page == "ResetPassword")
                 {
-                    <partial name="~/Views/Account/_ResetPasswordForm.cshtml" model="Model.ResetPassword" />
+                    <partial name="~/Views/Account/_ResetPasswordForm.cshtml" model="Model.PasswordLink" />
                 }
                 else if (Model.Page == "ChangePassword")
                 {

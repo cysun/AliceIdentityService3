@@ -41,7 +41,7 @@ public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEma
         await mail.SendPasswordResetAsync(user.Email!, user.FullName, path, cancellationToken);
     }
 
-    public async Task<User?> FindResetUserAsync(ResetPasswordLinkModel input)
+    public async Task<User?> FindResetUserAsync(AccountEmailLinkModel input)
     {
         var token = Decode(input.Code);
         if (token is null) return null;
@@ -50,7 +50,7 @@ public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEma
             await users.VerifyUserTokenAsync(user, users.Options.Tokens.PasswordResetTokenProvider, "ResetPassword", token) ? user : null;
     }
 
-    public async Task<IdentityResult> ResetAsync(ResetPasswordInputModel input)
+    public async Task<IdentityResult> ResetAsync(SetPasswordInputModel input)
     {
         var user = await FindResetUserAsync(input);
         if (user is null) return IdentityResult.Failed(users.ErrorDescriber.InvalidToken());

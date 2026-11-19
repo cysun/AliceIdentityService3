@@ -22,18 +22,12 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
         };
         var fullName = user.FullName;
         user.ScreenName = fullName.Length <= 255 ? fullName : fullName[..(char.IsHighSurrogate(fullName[254]) ? 254 : 255)];
-        // Apply the same password policy before checking for an existing account.
-        var passwordErrors = new List<IdentityError>();
-        foreach (var validator in users.PasswordValidators)
-            passwordErrors.AddRange((await validator.ValidateAsync(users, user, input.Password)).Errors);
-        if (passwordErrors.Count > 0) return IdentityResult.Failed(passwordErrors.ToArray());
-
         var normalized = users.NormalizeEmail(user.Email);
         if (!await users.Users.AnyAsync(existing => existing.NormalizedEmail == normalized ||
             existing.NormalizedUserName == users.NormalizeName(user.UserName), cancellationToken))
         {
             IdentityResult result;
-            try { result = await users.CreateAsync(user, input.Password); }
+            try { result = await users.CreateAsync(user); }
             catch (DbUpdateException error) when (error.InnerException is PostgresException
             { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "UserNameIndex" })
             {
@@ -68,7 +62,7 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
         await mail.SendConfirmationAsync(user.Email!, user.FullName, path, cancellationToken);
     }
 
-    public async Task<bool> CanConfirmAsync(ConfirmEmailInputModel input)
+    public async Task<bool> CanConfirmAsync(AccountEmailLinkModel input)
     {
         var user = await users.FindByIdAsync(input.UserId);
         var token = Decode(input.Code);
@@ -76,19 +70,28 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
             await users.VerifyUserTokenAsync(user, users.Options.Tokens.EmailConfirmationTokenProvider, "EmailConfirmation", token);
     }
 
-    public async Task<bool> ConfirmAsync(ConfirmEmailInputModel input, CancellationToken cancellationToken)
+    public async Task<IdentityResult> ConfirmAsync(SetPasswordInputModel input, CancellationToken cancellationToken)
     {
         await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
         var user = await users.FindByIdAsync(input.UserId);
         var token = Decode(input.Code);
-        if (user is null || user.EmailConfirmed || token is null) return false;
+        if (user is null || user.EmailConfirmed || token is null)
+            return IdentityResult.Failed(users.ErrorDescriber.InvalidToken());
         var confirmed = await users.ConfirmEmailAsync(user, token);
-        if (!confirmed.Succeeded) return false;
-        // Commit confirmation and stamp rotation together. Used links and all other
-        // outstanding confirmation tokens for this account become invalid.
-        if (!(await users.UpdateSecurityStampAsync(user)).Succeeded) return false;
+        if (!confirmed.Succeeded) return confirmed;
+
+        // Identity applies the password policy and rotates the stamp for both new
+        // passwordless registrations and pending accounts with an older password.
+        var resetToken = await users.GeneratePasswordResetTokenAsync(user);
+        var passwordResult = await users.ResetPasswordAsync(user, resetToken, input.Password);
+        if (!passwordResult.Succeeded)
+        {
+            // The transaction rolls back confirmation. Discard the provisional tracked state too.
+            database.Entry(user).State = EntityState.Detached;
+            return passwordResult;
+        }
         await transaction.CommitAsync(cancellationToken);
-        return true;
+        return IdentityResult.Success;
     }
 
     private static string? Decode(string code)

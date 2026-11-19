@@ -51,8 +51,13 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
         ChangeAsync(actor, id, input.Version, "edit", async (user, actorId) =>
         {
             if (actorId == id && !input.EmailConfirmed) return Invalid("You cannot unconfirm your own account.");
-            if (!user.EmailConfirmed && input.EmailConfirmed && string.IsNullOrWhiteSpace(user.Email)) return Invalid("An account without an email address cannot be confirmed.");
             var changedConfirmation = user.EmailConfirmed != input.EmailConfirmed;
+            if (changedConfirmation && input.EmailConfirmed)
+            {
+                if (string.IsNullOrWhiteSpace(user.Email)) return Invalid("An account without an email address cannot be confirmed.");
+                if (!await users.HasPasswordAsync(user))
+                    return Invalid("Ask the user to finish setting their password through email confirmation, or set a password before confirming this account.");
+            }
             user.FirstName = input.FirstName.Trim();
             user.LastName = input.LastName.Trim();
             user.ScreenName = input.ScreenName.Trim();

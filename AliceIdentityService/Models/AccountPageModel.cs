@@ -5,9 +5,8 @@ public sealed record AccountPageModel(string Page, string? ApplicationName = nul
     public LoginInputModel Login { get; init; } = new();
     public RegistrationInputModel Registration { get; init; } = new();
     public ResendConfirmationInputModel Resend { get; init; } = new();
-    public ConfirmEmailInputModel Confirmation { get; init; } = new();
+    public AccountEmailLinkModel PasswordLink { get; init; } = new();
     public ForgotPasswordInputModel ForgotPassword { get; init; } = new();
-    public ResetPasswordInputModel ResetPassword { get; init; } = new();
     public ChangePasswordInputModel ChangePassword { get; init; } = new();
     public ProfileInputModel Profile { get; init; } = new();
     public bool ProfileSaved { get; init; }

@@ -89,11 +89,11 @@ internal sealed class OidcTestClient(PostgresTestDatabase database, Authenticati
     public static string Field(string html, string name) => WebUtility.HtmlDecode(Regex.Match(html,
         $"name=\"{Regex.Escape(name)}\"[^>]*value=\"([^\"]*)\"").Groups[1].Value);
 
-    public async Task<HttpResponseMessage> SubmitLogin(string html, string password = Password, string? contextOverride = null)
+    public async Task<HttpResponseMessage> SubmitLogin(string html, string password = Password, string? contextOverride = null, string email = Email)
     {
         return await Browser.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["Email"] = Email,
+            ["Email"] = email,
             ["Password"] = password,
             ["OidcContext"] = contextOverride ?? Field(html, "OidcContext"),
             ["__RequestVerificationToken"] = Field(html, "__RequestVerificationToken"),
@@ -348,6 +348,48 @@ public sealed class OidcTests
     }
 
     [PostgresFact]
+    public async Task AuthorizationUsesTheSubjectOfAValidatedIdTokenHint()
+    {
+        await using var client = await OidcTestClient.Create();
+        var issued = await client.Tokens();
+        var hint = issued.GetProperty("id_token").GetString()!;
+        var expectedSubject = (await client.ValidateIdToken(hint)).Subject;
+        var request = client.Parameters();
+        request["id_token_hint"] = hint;
+        request["prompt"] = "none";
+        Assert.NotEmpty(await client.Code(request));
+
+        const string otherEmail = "other@example.test";
+        var users = client.Database.Services.GetRequiredService<UserManager<User>>();
+        var other = new User { Email = otherEmail, UserName = otherEmail, EmailConfirmed = true, FirstName = "Other", LastName = "User", ScreenName = "Other User" };
+        Assert.True((await users.CreateAsync(other, OidcTestClient.Password)).Succeeded);
+        var select = client.Parameters();
+        select["prompt"] = "select_account";
+        var selection = await client.Authorize(select);
+        var switched = await client.SubmitLogin(await selection.Content.ReadAsStringAsync(), email: otherEmail);
+        Assert.Equal(HttpStatusCode.Redirect, switched.StatusCode);
+
+        var silent = await client.Authorize(request);
+        Assert.Equal(Errors.LoginRequired, await OidcTestClient.Error(silent));
+        var error = QueryHelpers.ParseQuery(silent.Headers.Location!.Query);
+        Assert.Equal(client.State, error["state"].ToString());
+        Assert.False(error.ContainsKey("code"));
+
+        request.Remove("prompt");
+        var challenge = await client.Authorize(request);
+        Assert.Equal(HttpStatusCode.OK, challenge.StatusCode);
+        var wrongAccount = await client.SubmitLogin(await challenge.Content.ReadAsStringAsync(), email: otherEmail);
+        Assert.Equal(HttpStatusCode.OK, wrongAccount.StatusCode);
+        var login = await client.SubmitLogin(await wrongAccount.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        var redirect = await client.Browser.GetAsync(login.Headers.Location);
+        Assert.StartsWith(OidcTestClient.Callback + "?", redirect.Headers.Location!.OriginalString);
+        var code = QueryHelpers.ParseQuery(redirect.Headers.Location.Query)["code"].ToString();
+        var tokens = await (await client.Redeem(code)).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(expectedSubject, (await client.ValidateIdToken(tokens.GetProperty("id_token").GetString()!)).Subject);
+    }
+
+    [PostgresFact]
     public async Task RefreshUsesCurrentClaimsAndRejectsReplayAndScopeEscalation()
     {
         await using var client = await OidcTestClient.Create();
@@ -500,6 +542,7 @@ public sealed class OidcTests
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         var narrower = await response.Content.ReadFromJsonAsync<JsonElement>();
         var id = await client.ValidateIdToken(narrower.GetProperty("id_token").GetString()!);
+        Assert.Empty(new JsonWebToken(narrower.GetProperty("access_token").GetString()).Audiences);
         Assert.False(id.TryGetClaim("email", out _));
         Assert.False(id.TryGetClaim("department", out _));
         request["prompt"] = "consent";

@@ -4,7 +4,6 @@
     <div asp-validation-summary="All" class="validation-errors" role="alert"></div>
     <div class="two-fields"><label class="field" for="first-name">First name<input asp-for="FirstName" id="first-name" autocomplete="given-name" required maxlength="255" /></label><label class="field" for="last-name">Last name<input asp-for="LastName" id="last-name" autocomplete="family-name" required maxlength="255" /></label></div>
     <label class="field" for="email">Email address<input asp-for="Email" id="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="256" /></label>
-    <div class="field"><label for="password">Password</label><span class="password-field"><input id="password" name="Password" type="password" autocomplete="new-password" placeholder="Enter your password" required maxlength="4096" aria-describedby="password-help" /><button type="button" class="password-toggle" aria-label="Show password" aria-pressed="false">Show</button></span><small id="password-help">Use at least 6 characters, including uppercase and lowercase letters, a number, and a symbol.</small></div>
-    <label class="field" for="confirm-password">Confirm password<input id="confirm-password" name="ConfirmPassword" type="password" autocomplete="new-password" placeholder="Re-enter your password" required maxlength="4096" /></label>
-    <button type="submit" class="primary-button">Create account <span aria-hidden="true">→</span></button>
+    <p>We'll email you a link to choose your password and activate your account.</p>
+    <button type="submit" class="primary-button">Send confirmation email <span aria-hidden="true">→</span></button>
 </form>
