@@ -10,7 +10,7 @@ namespace AliceIdentityService.Controllers;
 [Route("Account")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AccountController(SignInManager<User> signIn, OidcLoginContext oidcContext,
-    RegistrationService registration, PasswordRecoveryService recovery) : Controller
+    RegistrationService registration, PasswordRecoveryService recovery, ILogger<AccountController> logger) : Controller
 {
     [HttpGet("Login")]
     public async Task<IActionResult> Login(string? context, string? returnUrl)
@@ -39,14 +39,25 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
         if (ModelState.IsValid)
         {
             var user = await signIn.UserManager.FindByNameAsync(input.Email.Trim());
+            var clientId = OperationLog.Text(validated?.Request.ClientId) ?? "AIS3";
+            var result = Microsoft.AspNetCore.Identity.SignInResult.Failed;
             // AIS3 has no two-factor challenge yet. Never downgrade an imported
             // account with two-factor enabled to password-only authentication.
             if (user is not null && !user.TwoFactorEnabled &&
                 (validated?.Request.RequiredSubject is not { } requiredSubject || user.Id == requiredSubject))
             {
-                var result = await signIn.PasswordSignInAsync(user, input.Password, input.RememberMe, lockoutOnFailure: true);
-                if (result.Succeeded) return LocalRedirect(validated is null ? input.ReturnUrl : OidcLoginContext.AfterPasswordSignIn(validated.Request));
+                var previousLockout = user.LockoutEnd;
+                result = await signIn.PasswordSignInAsync(user, input.Password, input.RememberMe, lockoutOnFailure: true);
+                if (result.Succeeded)
+                {
+                    logger.LogInformation("Account {Email} ({UserId}) logged in to {ClientId} (remember me {RememberMe})",
+                        OperationLog.Text(user.Email), user.Id, clientId, input.RememberMe);
+                    return LocalRedirect(validated is null ? input.ReturnUrl : OidcLoginContext.AfterPasswordSignIn(validated.Request));
+                }
+                LogNewLockout(user, previousLockout, result);
             }
+            logger.LogWarning("Login failed for {Email} ({UserId}) to {ClientId} ({Outcome})",
+                OperationLog.Text(input.Email.Trim()), user?.Id, clientId, result.ToString());
             ModelState.AddModelError(string.Empty, "Unable to sign in. Check your credentials and that your email is confirmed, or try again later.");
         }
         input.Password = string.Empty;
@@ -80,7 +91,12 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
             user.LastName = input.LastName.Trim();
             user.ScreenName = input.ScreenName.Trim();
             var result = await signIn.UserManager.UpdateAsync(user);
-            if (result.Succeeded) return RedirectToAction(nameof(Home), new { saved = true });
+            if (result.Succeeded)
+            {
+                logger.LogInformation("Account {Email} ({UserId}) updated its profile to {@Profile}",
+                    OperationLog.Text(user.Email), user.Id, OperationLog.Profile(user));
+                return RedirectToAction(nameof(Home), new { saved = true });
+            }
             ModelState.AddModelError(string.Empty, "Unable to save your profile. Reload the page and try again.");
         }
         // Claims are refreshed on the next request without renewing the fixed cookie expiry.
@@ -97,18 +113,25 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
         {
             var user = await signIn.UserManager.GetUserAsync(User);
             if (user is null) return Challenge();
+            var previousLockout = user.LockoutEnd;
             var check = await signIn.CheckPasswordSignInAsync(user, input.CurrentPassword, lockoutOnFailure: true);
             if (check.Succeeded)
             {
                 var result = await signIn.UserManager.ChangePasswordAsync(user, input.CurrentPassword, input.Password);
                 if (result.Succeeded)
                 {
+                    logger.LogInformation("Account {Email} ({UserId}) changed its password", OperationLog.Text(user.Email), user.Id);
                     await signIn.SignOutAsync();
                     return View("Account", new AccountPageModel("PasswordChanged"));
                 }
                 foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
             }
-            else ModelState.AddModelError(string.Empty, "Unable to change your password. Check your current password or try again later.");
+            else
+            {
+                LogNewLockout(user, previousLockout, check);
+                logger.LogWarning("Password change denied for {Email} ({UserId}) ({Outcome})", OperationLog.Text(user.Email), user.Id, check.ToString());
+                ModelState.AddModelError(string.Empty, "Unable to change your password. Check your current password or try again later.");
+            }
         }
         input.CurrentPassword = input.Password = input.ConfirmPassword = string.Empty;
         ClearPasswords(nameof(input.CurrentPassword), nameof(input.Password), nameof(input.ConfirmPassword));
@@ -138,6 +161,13 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
 
     private string SafeReturnUrl(string? returnUrl, string fallback = "/Account") =>
         Url.IsLocalUrl(returnUrl) ? returnUrl! : fallback;
+
+    private void LogNewLockout(User user, DateTimeOffset? previousLockout, Microsoft.AspNetCore.Identity.SignInResult result)
+    {
+        if (result.IsLockedOut && user.LockoutEnd is { } until && until != previousLockout)
+            logger.LogWarning("Account {Email} ({UserId}) locked until {LockoutEnd} after failed password attempts",
+                OperationLog.Text(user.Email), user.Id, until);
+    }
 
     [HttpGet("Register")]
     public async Task<IActionResult> Register(string? context)

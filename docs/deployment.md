@@ -76,9 +76,13 @@ The public proxy returns 404 for `/health`; local probes use the exact configure
 
 ## Logging and browser policy
 
-The sample writes application logs to systemd's journal. Request logs use route templates, method, status, duration and a generated trace ID; they omit raw paths, query strings, bodies, cookies and authorization headers. Unhandled request failures return a generic 500 and log only exception type and trace ID. Existing administrative operation logs record actor/target identifiers, and mail logs retain the Step 12 publication behavior. Restrict journal access and configure retention on the host. Do not enable request-body logging, EF sensitive-data logging or verbose OpenIddict/framework logs on a shared identity host. Diagnostic exports must be reviewed for account data.
+The sample writes timestamped operations to systemd's journal. Registration records the new account's email and ID as soon as creation succeeds. Mail publication records the mail kind, account ID, destination queue and MIME Message-ID when RabbitMQ confirms it. Use the account ID to follow registration through publication and confirmation.
 
-Nginx's sample access format omits URLs and headers. Its error log threshold is `crit` because ordinary proxy errors can include full request URIs; use AIS3 status/trace logs and local health probes for routine diagnosis. Review any server-wide/default-host logging rules too. The proxy must overwrite forwarded headers rather than append user-supplied values.
+AIS3 also records login outcomes, logout, profile and password changes, OIDC authorization and token issuance, and committed administrative changes. Administrator events identify the actor and target and include details such as lock duration, claim type and row ID, or client settings. Ordinary searches, page views and health checks produce no application activity entries. Unhandled request failures still produce an error with the route template, trace ID and exception type.
+
+Operation logs can contain email addresses and profile names. Restrict journal access and configure retention on the host. Keep passwords, tokens, cookies, claim values and message bodies out of diagnostic exports. The application defaults to warning-level framework, database and OpenIddict diagnostics.
+
+Nginx's access log is configured separately. Its sample format omits URLs and headers, and the error log threshold is `crit` because ordinary proxy errors can include full request URIs. Use AIS3 error logs and local health probes for diagnosis. Review any server-wide/default-host logging rules too. The proxy must overwrite forwarded headers.
 
 Deployed hosts add HSTS (180 days, no subdomain/preload opt-in), frame denial, `nosniff`, no-referrer and a restricted permissions policy. Account/admin documents use a same-origin Content Security Policy with no inline scripts; inline styles remain allowed for Base UI positioning. `/connect` responses retain framing/base/object restrictions while allowing OpenIddict's generated cross-origin `form_post` form/script. This preserves existing OIDC response modes. The approved UI layout and account flows are unchanged.
 

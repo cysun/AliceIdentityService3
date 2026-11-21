@@ -23,9 +23,10 @@ public sealed class RabbitMailPublisher(IOptions<RabbitMqSettings> settings) : I
     private readonly SemaphoreSlim gate = new(1, 1);
     private IConnection? connection;
 
-    public async Task PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+    public async Task<string> PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
     {
         var options = settings.Value;
+        var queue = options.QueueName;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(options.PublishTimeoutSeconds));
         await gate.WaitAsync(timeout.Token);
@@ -50,9 +51,9 @@ public sealed class RabbitMailPublisher(IOptions<RabbitMqSettings> settings) : I
             }
             await using var channel = await connection.CreateChannelAsync(new CreateChannelOptions(
                 publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true), timeout.Token);
-            await channel.QueueDeclareAsync(options.QueueName, durable: true, exclusive: false, autoDelete: false,
+            await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false,
                 cancellationToken: timeout.Token);
-            await channel.BasicPublishAsync(string.Empty, options.QueueName, mandatory: true,
+            await channel.BasicPublishAsync(string.Empty, queue, mandatory: true,
                 basicProperties: new BasicProperties
                 {
                     Persistent = true,
@@ -61,6 +62,7 @@ public sealed class RabbitMailPublisher(IOptions<RabbitMqSettings> settings) : I
                 }, body: body, cancellationToken: timeout.Token);
             // Awaiting publish with confirmation tracking rejects nacks/returns. No automatic replay:
             // a timeout may mean the broker accepted the message but its acknowledgement was lost.
+            return queue;
         }
         finally { gate.Release(); }
     }

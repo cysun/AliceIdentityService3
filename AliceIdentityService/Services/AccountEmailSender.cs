@@ -1,3 +1,4 @@
+using AliceIdentityService.Models;
 using MessagePack;
 using Microsoft.Extensions.Options;
 using MimeKit;
@@ -14,13 +15,14 @@ public sealed class EmailSettings
 
 public interface IAccountEmailSender
 {
-    Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken);
-    Task SendPasswordResetAsync(string email, string name, string resetPath, CancellationToken cancellationToken);
+    Task SendConfirmationAsync(User user, string confirmationPath, CancellationToken cancellationToken);
+    Task SendPasswordResetAsync(User user, string resetPath, CancellationToken cancellationToken);
 }
 
 public interface IMailPublisher
 {
-    Task PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
+    // Returns the destination queue after broker confirmation.
+    Task<string> PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken);
 }
 
 public sealed class MailDeliveryException : Exception
@@ -31,15 +33,14 @@ public sealed class MailDeliveryException : Exception
 public sealed class AccountEmailSender(IOptions<EmailSettings> settings, IMailPublisher publisher, EmailTemplates templates,
     ILogger<AccountEmailSender> logger) : IAccountEmailSender
 {
-    public Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken) =>
-        SendAsync("EmailVerification", email, name, confirmationPath, cancellationToken);
+    public Task SendConfirmationAsync(User user, string confirmationPath, CancellationToken cancellationToken) =>
+        SendAsync("EmailVerification", "Email confirmation", user, confirmationPath, cancellationToken);
 
-    public Task SendPasswordResetAsync(string email, string name, string resetPath, CancellationToken cancellationToken) =>
-        SendAsync("ResetPassword", email, name, resetPath, cancellationToken);
+    public Task SendPasswordResetAsync(User user, string resetPath, CancellationToken cancellationToken) =>
+        SendAsync("ResetPassword", "Password reset", user, resetPath, cancellationToken);
 
-    private async Task SendAsync(string template, string email, string name, string path, CancellationToken cancellationToken)
+    private async Task SendAsync(string template, string kind, User user, string path, CancellationToken cancellationToken)
     {
-        var kind = template == "EmailVerification" ? "confirmation" : "password-reset";
         var stage = "configuration";
         try
         {
@@ -51,7 +52,7 @@ public sealed class AccountEmailSender(IOptions<EmailSettings> settings, IMailPu
             stage = "message";
             using var message = new MimeMessage();
             message.From.Add(new MailboxAddress(options.SenderName, options.SenderEmail));
-            message.To.Add(new MailboxAddress(name, email));
+            message.To.Add(new MailboxAddress(user.FullName, user.Email ?? throw new InvalidOperationException("Account email is missing.")));
             message.Subject = content.Subject;
             message.MessageId = MimeUtils.GenerateMessageId();
             message.Body = new BodyBuilder
@@ -64,18 +65,20 @@ public sealed class AccountEmailSender(IOptions<EmailSettings> settings, IMailPu
             // AliceMailService consumes MessagePack List<byte[]> containing serialized MIME messages.
             var body = MessagePackSerializer.Serialize(new List<byte[]> { stream.ToArray() }, cancellationToken: cancellationToken);
             stage = "broker";
-            await publisher.PublishAsync(body, cancellationToken);
-            logger.LogInformation("Account email {MailKind} broker-confirmed. Message ID: {MailMessageId}", kind, message.MessageId);
+            var queue = await publisher.PublishAsync(body, cancellationToken);
+            logger.LogInformation("{MailKind} email published to {QueueName} for account {UserId} (message {MailMessageId})",
+                kind, OperationLog.Text(queue), user.Id, message.MessageId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning("Account email {MailKind} cancelled during {MailStage}", kind, stage);
+            logger.LogWarning("{MailKind} email publication for account {UserId} cancelled during {MailStage}", kind, user.Id, stage);
             throw;
         }
         catch (Exception error)
         {
             // Exception messages, recipients, and links can contain secrets. Log the type only.
-            logger.LogWarning("Account email {MailKind} not broker-confirmed during {MailStage}. Failure type: {FailureType}", kind, stage, error.GetType().Name);
+            logger.LogWarning("{MailKind} email publication for account {UserId} not confirmed during {MailStage} ({FailureType})",
+                kind, user.Id, stage, error.GetType().Name);
             throw new MailDeliveryException();
         }
     }

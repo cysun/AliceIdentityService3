@@ -44,6 +44,9 @@ public static class ReviewClientCommand
         else
         {
             await applications.CreateAsync(descriptor);
+            scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ReviewClientCommand))
+                .LogInformation("The review-client command run by {Operator} created public PKCE client {ClientId}",
+                    OperationLog.Text(Environment.UserName), descriptor.ClientId);
             Console.WriteLine("Created public PKCE client ais3-review for https://localhost:9443.");
         }
         return 0;

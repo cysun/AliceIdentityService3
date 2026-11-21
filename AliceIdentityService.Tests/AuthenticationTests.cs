@@ -24,16 +24,39 @@ internal sealed class TestClock : TimeProvider
     public void Advance(TimeSpan amount) => now += amount;
 }
 
-internal sealed class AuthenticationFactory(string connection, Action<IServiceCollection>? configure = null) : PreviewFactory
+internal sealed class TestLogFile : IDisposable
+{
+    private readonly string path = Path.Combine(Path.GetTempPath(), $"ais3-operations-{Guid.NewGuid():N}.log");
+
+    public void Configure(IConfigurationBuilder configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["Serilog:WriteTo:1:Args:path"] = path,
+        ["Serilog:WriteTo:1:Args:rollingInterval"] = "Infinite",
+        ["Serilog:WriteTo:1:Args:outputTemplate"] = "[{Level:u3}] {Message:lj}{NewLine}"
+    });
+
+    public string[] Lines()
+    {
+        if (!File.Exists(path)) return [];
+        using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    public void Dispose() => File.Delete(path);
+}
+
+internal sealed class AuthenticationFactory(string connection, Action<IServiceCollection>? configure = null, TestLogFile? log = null) : PreviewFactory
 {
     public TestClock Clock { get; } = new();
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         base.ConfigureWebHost(builder);
-        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        builder.ConfigureAppConfiguration((_, configuration) =>
         {
-            ["ConnectionStrings:DefaultConnection"] = connection
-        }));
+            configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:DefaultConnection"] = connection });
+            log?.Configure(configuration);
+        });
         builder.ConfigureServices(services =>
         {
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
@@ -106,9 +129,12 @@ public sealed class AuthenticationTests
     public async Task ConfirmedLoginAndPostLogoutUseAntiforgeryAndPreserveTheAccountLayout()
     {
         await using var database = await Database();
-        await CreateUser(database);
-        using var factory = Factory(database);
+        var user = await CreateUser(database);
+        using var log = new TestLogFile();
+        using var factory = new AuthenticationFactory(database.Db.Database.GetConnectionString()!, log: log);
         using var browser = factory.Browser();
+        const string wrongPassword = "Wrong-Private-Password!";
+        await Login(browser, password: wrongPassword);
         var login = await Login(browser, email: Email.ToUpperInvariant());
         Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
         Assert.Equal("/Account", login.Headers.Location!.OriginalString);
@@ -129,6 +155,11 @@ public sealed class AuthenticationTests
         Assert.Equal("/Account/Login", logout.Headers.Location!.OriginalString);
         Assert.Contains("expires=Thu, 01 Jan 1970", AuthenticationFactory.SessionCookie(logout));
         Assert.Equal(HttpStatusCode.Redirect, (await browser.GetAsync("/Account")).StatusCode);
+        var lines = log.Lines();
+        Assert.Single(lines, line => line.Contains("Login failed for " + Email));
+        Assert.Single(lines, line => line.Contains($"{Email} ({user.Id}) logged in"));
+        Assert.Single(lines, line => line.Contains($"{Email} ({user.Id}) logged out"));
+        Assert.DoesNotContain(lines, line => line.Contains(Password) || line.Contains(wrongPassword));
     }
 
     [PostgresFact]
@@ -198,7 +229,8 @@ public sealed class AuthenticationTests
     {
         await using var database = await Database();
         await CreateUser(database);
-        using var factory = Factory(database);
+        using var log = new TestLogFile();
+        using var factory = new AuthenticationFactory(database.Db.Database.GetConnectionString()!, log: log);
         using var browser = factory.Browser();
         for (var i = 0; i < 5; i++) Assert.Equal(HttpStatusCode.OK, (await Login(browser, password: "Wrong-42!")).StatusCode);
         database.Db.ChangeTracker.Clear();
@@ -210,6 +242,7 @@ public sealed class AuthenticationTests
         Assert.Equal(HttpStatusCode.Redirect, (await Login(browser)).StatusCode);
         database.Db.ChangeTracker.Clear();
         Assert.Equal(0, (await database.Db.Users.SingleAsync()).AccessFailedCount);
+        Assert.Single(log.Lines(), line => line.Contains($"{Email} ({user.Id}) locked until"));
     }
 
     [PostgresFact]

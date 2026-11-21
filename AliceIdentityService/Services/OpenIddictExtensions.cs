@@ -35,6 +35,9 @@ public static class OpenIddictExtensions
             options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(handler => handler
                 .UseScopedHandler<ApplyScopeResources>()
                 .SetOrder(OpenIddictServerHandlers.PrepareAccessTokenPrincipal.Descriptor.Order - 1));
+            options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(handler => handler
+                .UseScopedHandler<LogTokenIssuance>()
+                .SetOrder(OpenIddictServerHandlers.AttachSignInParameters.Descriptor.Order + 1));
             // Retain AIS2's signed JWT access tokens for independently validating APIs.
             options.DisableAccessTokenEncryption();
             options.UseAspNetCore().EnableAuthorizationEndpointPassthrough()
@@ -82,6 +85,25 @@ public static class OpenIddictExtensions
             options.Issuer = issuer;
         });
         return services;
+    }
+
+    private sealed class LogTokenIssuance(ILogger<LogTokenIssuance> logger)
+        : IOpenIddictServerHandler<OpenIddictServerEvents.ProcessSignInContext>
+    {
+        public ValueTask HandleAsync(OpenIddictServerEvents.ProcessSignInContext context)
+        {
+            var principal = context.Principal!;
+            var clientId = OperationLog.Text(context.Request.ClientId);
+            var userId = principal.GetClaim(Claims.Subject);
+            var scopes = string.Join(" ", principal.GetScopes());
+            if (context.Response.Code is not null)
+                logger.LogInformation("Issued an authorization code to client {ClientId} for account {UserId} with scopes {Scopes}",
+                    clientId, userId, scopes);
+            else if (context.Response.AccessToken is not null)
+                logger.LogInformation("Issued tokens to client {ClientId} for account {UserId} using {GrantType} with scopes {Scopes}",
+                    clientId, userId, context.Request.GrantType, scopes);
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class ApplyScopeResources(IOpenIddictScopeManager scopes)

@@ -12,7 +12,7 @@ namespace AliceIdentityService.Services;
 public sealed record AdministratorRequest(string Email, string FirstName, string LastName, string? ScreenName = null);
 public sealed record BootstrapResult(bool AdministratorCreated, int ScopesCreated);
 
-public sealed class BootstrapService(AisDbContext db, UserManager<User> users, IOpenIddictScopeManager scopes)
+public sealed class BootstrapService(AisDbContext db, UserManager<User> users, IOpenIddictScopeManager scopes, ILogger<BootstrapService> logger)
 {
     public async Task<BootstrapResult> RunAsync(AdministratorRequest request, Func<Task<string>> readPassword, CancellationToken cancellationToken = default)
     {
@@ -29,7 +29,7 @@ public sealed class BootstrapService(AisDbContext db, UserManager<User> users, I
         var normalizedName = users.NormalizeName(email);
         var matches = await db.Users.Where(user => user.NormalizedEmail == normalizedEmail || user.NormalizedUserName == normalizedName)
             .ToListAsync(cancellationToken);
-        var created = false;
+        User? created = null;
         if (matches.Count > 1)
             throw new InvalidOperationException("Multiple existing accounts match the supplied email. Bootstrap cannot resolve them automatically.");
         if (matches.Count == 1)
@@ -51,19 +51,25 @@ public sealed class BootstrapService(AisDbContext db, UserManager<User> users, I
             };
             RequireSuccess(await users.CreateAsync(user, await readPassword()));
             RequireSuccess(await users.AddClaimAsync(user, new Claim(AisConstants.AdminClaim, "true")));
-            created = true;
+            created = user;
         }
-        var scopesCreated = 0;
+        var scopesCreated = new List<string>();
         foreach (var (name, claims) in AisConstants.StandardScopes)
         {
             if (await scopes.FindByNameAsync(name, cancellationToken) is not null) continue;
             var descriptor = new OpenIddictScopeDescriptor { Name = name, DisplayName = name };
             descriptor.Properties["claims"] = JsonSerializer.SerializeToElement(claims);
             await scopes.CreateAsync(descriptor, cancellationToken);
-            scopesCreated++;
+            scopesCreated.Add(name);
         }
         await transaction.CommitAsync(cancellationToken);
-        return new(created, scopesCreated);
+        if (created is not null)
+            logger.LogInformation("Bootstrap run by {Operator} created administrator {Email} ({UserId}) with claim {ClaimType}",
+                OperationLog.Text(Environment.UserName), OperationLog.Text(created.Email), created.Id, AisConstants.AdminClaim);
+        if (scopesCreated.Count > 0)
+            logger.LogInformation("Bootstrap run by {Operator} created standard scopes {Scopes}", OperationLog.Text(Environment.UserName),
+                string.Join(" ", scopesCreated));
+        return new(created is not null, scopesCreated.Count);
     }
 
     private static string RequiredName(string value, string label)

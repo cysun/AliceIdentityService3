@@ -87,7 +87,8 @@ public sealed class AdminClaimScopeTests
     [PostgresFact]
     public async Task ClaimsValidateDuplicatesReservedTypesAndVersionsAndDeleteSpecificLegacyRows()
     {
-        await using var client = await OidcTestClient.Create();
+        using var log = new TestLogFile();
+        await using var client = await OidcTestClient.Create(log: log);
         await Login(client.Browser);
         var target = await AddUser(client);
         var detail = (await UserDetail(client.Browser, target.Id))!;
@@ -119,6 +120,11 @@ public sealed class AdminClaimScopeTests
         var actor = await client.Database.Db.Users.AsNoTracking().SingleAsync(user => user.Email == OidcTestClient.Email);
         var otherClaim = await client.Database.Db.UserClaims.AsNoTracking().FirstAsync(claim => claim.UserId == actor.Id);
         Assert.Equal(HttpStatusCode.BadRequest, (await Write(client.Browser, path + "/" + otherClaim.Id, new { detail.Version }, true)).StatusCode);
+        var lines = log.Lines();
+        var added = lines.Where(line => line.Contains("added a claim to")).ToArray();
+        Assert.Equal(3, added.Length);
+        Assert.Contains(added, line => line.Contains(actor.Email!) && line.Contains(target.Id) && line.Contains("department") && line.Contains("ClaimId"));
+        Assert.DoesNotContain(lines, line => line.Contains(stored.Value!));
     }
 
     [PostgresFact]
@@ -309,7 +315,8 @@ public sealed class AdminClaimScopeTests
     [PostgresFact]
     public async Task ClaimAndStampChangesRollBackWhenRevocationFails()
     {
-        await using var client = await OidcTestClient.Create();
+        using var log = new TestLogFile();
+        await using var client = await OidcTestClient.Create(log: log);
         await client.Tokens();
         var target = await client.Database.Db.Users.AsNoTracking().SingleAsync(user => user.Email == OidcTestClient.Email);
         var actor = await AddUser(client, true);
@@ -333,5 +340,6 @@ public sealed class AdminClaimScopeTests
             Assert.Equal(target.SecurityStamp, (await client.Database.Db.Users.AsNoTracking().SingleAsync(user => user.Id == target.Id)).SecurityStamp);
             Assert.Equal(previousTokens, await client.Database.Db.Set<OpenIddictEntityFrameworkCoreToken>().AsNoTracking().OrderBy(token => token.Id).Select(token => new { token.Id, token.Status }).ToListAsync());
         }
+        Assert.DoesNotContain(log.Lines(), line => line.Contains("added a claim to") || line.Contains("removed a claim from"));
     }
 }

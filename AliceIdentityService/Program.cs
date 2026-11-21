@@ -13,11 +13,11 @@ var reviewClient = args.FirstOrDefault() == "review-client";
 var builder = WebApplication.CreateBuilder(bootstrap || reviewClient ? [] : args);
 builder.Services.AddSerilog((services, logger) =>
 {
-    logger.ReadFrom.Configuration(services.GetRequiredService<IConfiguration>());
-    if (builder.Environment.IsDeployed())
-        logger.MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
-            .MinimumLevel.Override("OpenIddict", Serilog.Events.LogEventLevel.Warning)
-            .MinimumLevel.Override("Npgsql", Serilog.Events.LogEventLevel.Warning);
+    var configuration = services.GetRequiredService<IConfiguration>();
+    logger.ReadFrom.Configuration(configuration);
+    foreach (var category in new[] { "Microsoft", "OpenIddict", "Npgsql" })
+        if (builder.Environment.IsDeployed() || configuration[$"Serilog:MinimumLevel:Override:{category}"] is null)
+            logger.MinimumLevel.Override(category, Serilog.Events.LogEventLevel.Warning);
 });
 if (!builder.Environment.IsDevelopment())
     builder.WebHost.UseUrls("http://localhost:5000");

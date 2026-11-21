@@ -13,7 +13,7 @@ public sealed record AdminMutationOutcome(int Status, string? Id = null, bool Se
 public sealed class AdminUserMutationService(AisDbContext database, UserManager<User> users, TimeProvider clock, AdminWriteGuard guard,
     IOpenIddictTokenManager tokens, IOpenIddictAuthorizationManager authorizations, ILogger<AdminUserMutationService> logger)
 {
-    private sealed record Change(IdentityResult Result, bool Revoke = false);
+    private sealed record Change(IdentityResult Result, bool Revoke = false, Dictionary<string, object?>? Parameters = null);
     private static Change Invalid(string message) => new(IdentityResult.Failed(new IdentityError { Description = message }));
 
     public async Task<AdminMutationOutcome> CreateAsync(ClaimsPrincipal actor, AdminCreateUserInput input, CancellationToken cancellationToken)
@@ -43,12 +43,12 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
         }
         if (!result.Succeeded) return Failure(result);
         await transaction.CommitAsync(cancellationToken);
-        Audit("create", users.GetUserId(actor)!, user.Id);
+        OperationLog.Admin(logger, actor, "created", "account", user.Email, user.Id, OperationLog.Profile(user));
         return new(200, user.Id);
     }
 
     public Task<AdminMutationOutcome> EditAsync(ClaimsPrincipal actor, string id, AdminEditUserInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "edit", async (user, actorId) =>
+        ChangeAsync(actor, id, input.Version, "updated", async (user, actorId) =>
         {
             if (actorId == id && !input.EmailConfirmed) return Invalid("You cannot unconfirm your own account.");
             var changedConfirmation = user.EmailConfirmed != input.EmailConfirmed;
@@ -63,11 +63,11 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
             user.ScreenName = input.ScreenName.Trim();
             user.EmailConfirmed = input.EmailConfirmed;
             var result = changedConfirmation ? await users.UpdateSecurityStampAsync(user) : await users.UpdateAsync(user);
-            return new(result, changedConfirmation);
+            return new(result, changedConfirmation, OperationLog.Profile(user));
         }, cancellationToken);
 
     public Task<AdminMutationOutcome> PasswordAsync(ClaimsPrincipal actor, string id, AdminPasswordInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "password-reset", async (user, _) =>
+        ChangeAsync(actor, id, input.Version, "reset the password for", async (user, _) =>
         {
             var token = await users.GeneratePasswordResetTokenAsync(user);
             // Identity atomically changes the hash and stamp, applying the existing password policy.
@@ -75,7 +75,7 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
         }, cancellationToken);
 
     public Task<AdminMutationOutcome> LockAsync(ClaimsPrincipal actor, string id, AdminLockInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "lock", async (user, actorId) =>
+        ChangeAsync(actor, id, input.Version, "locked", async (user, actorId) =>
         {
             if (actorId == id) return Invalid("You cannot lock your own account.");
             user.LockoutEnabled = true;
@@ -85,11 +85,11 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
                 "day" => clock.GetUtcNow().AddDays(1),
                 _ => DateTimeOffset.MaxValue
             };
-            return new(await users.UpdateSecurityStampAsync(user), true);
+            return new(await users.UpdateSecurityStampAsync(user), true, new() { ["Duration"] = input.Duration, ["LockoutEnd"] = user.LockoutEnd });
         }, cancellationToken);
 
     public Task<AdminMutationOutcome> UnlockAsync(ClaimsPrincipal actor, string id, AdminUserVersionInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "unlock", async (user, _) =>
+        ChangeAsync(actor, id, input.Version, "unlocked", async (user, _) =>
         {
             user.LockoutEnd = null;
             user.AccessFailedCount = 0;
@@ -98,7 +98,7 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
         }, cancellationToken);
 
     public Task<AdminMutationOutcome> DeleteAsync(ClaimsPrincipal actor, string id, AdminDeleteUserInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "delete", async (user, actorId) =>
+        ChangeAsync(actor, id, input.Version, "deleted", async (user, actorId) =>
         {
             if (actorId == id) return Invalid("You cannot delete your own account.");
             var identifier = string.IsNullOrWhiteSpace(user.Email) ? user.Id : user.Email;
@@ -108,7 +108,7 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
         }, cancellationToken);
 
     public Task<AdminMutationOutcome> AddClaimAsync(ClaimsPrincipal actor, string id, AdminClaimInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "claim-add", async (user, _) =>
+        ChangeAsync(actor, id, input.Version, "added a claim to", async (user, _) =>
         {
             var type = input.Type.Trim();
             var value = input.Value.Trim();
@@ -117,12 +117,14 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
             if (value.Any(char.IsControl)) return Invalid("Claim values cannot contain control characters.");
             if (await database.UserClaims.AnyAsync(claim => claim.UserId == id && claim.ClaimType == type && claim.ClaimValue == value, cancellationToken))
                 return Invalid("This account already has that claim and value.");
-            database.UserClaims.Add(new IdentityUserClaim<string> { UserId = id, ClaimType = type, ClaimValue = value });
-            return new(await users.UpdateSecurityStampAsync(user), true);
+            var claim = new IdentityUserClaim<string> { UserId = id, ClaimType = type, ClaimValue = value };
+            database.UserClaims.Add(claim);
+            var result = await users.UpdateSecurityStampAsync(user);
+            return new(result, true, new() { ["ClaimType"] = type, ["ClaimId"] = claim.Id });
         }, cancellationToken);
 
     public Task<AdminMutationOutcome> RemoveClaimAsync(ClaimsPrincipal actor, string id, int claimId, AdminUserVersionInput input, CancellationToken cancellationToken) =>
-        ChangeAsync(actor, id, input.Version, "claim-remove", async (user, actorId) =>
+        ChangeAsync(actor, id, input.Version, "removed a claim from", async (user, actorId) =>
         {
             var claim = await database.UserClaims.SingleOrDefaultAsync(claim => claim.UserId == id && claim.Id == claimId, cancellationToken);
             if (claim is null) return Invalid("This claim no longer exists. Reload the account.");
@@ -131,7 +133,7 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
                 return Invalid("You cannot remove your own last administrator claim.");
             // Address a stored row so imported duplicate or null claims can be removed individually.
             database.UserClaims.Remove(claim);
-            return new(await users.UpdateSecurityStampAsync(user), true);
+            return new(await users.UpdateSecurityStampAsync(user), true, new() { ["ClaimType"] = OperationLog.Text(claim.ClaimType), ["ClaimId"] = claimId });
         }, cancellationToken);
 
     private async Task<AdminMutationOutcome> ChangeAsync(ClaimsPrincipal actor, string id, string version, string operation,
@@ -145,20 +147,20 @@ public sealed class AdminUserMutationService(AisDbContext database, UserManager<
         var actorId = users.GetUserId(actor)!;
         var result = await change(user, actorId);
         if (!result.Result.Succeeded) return Failure(result.Result);
+        var parameters = result.Parameters;
         if (result.Revoke)
         {
             // Same scoped DbContext/transaction as Identity: failure rolls back the entire operation.
-            await tokens.RevokeBySubjectAsync(id, cancellationToken);
-            await authorizations.RevokeBySubjectAsync(id, cancellationToken);
+            parameters ??= [];
+            parameters["RevokedTokens"] = await tokens.RevokeBySubjectAsync(id, cancellationToken);
+            parameters["RevokedAuthorizations"] = await authorizations.RevokeBySubjectAsync(id, cancellationToken);
         }
         await transaction.CommitAsync(cancellationToken);
-        Audit(operation, actorId, id);
+        OperationLog.Admin(logger, actor, operation, "account", user.Email ?? user.UserName ?? user.ScreenName, id, parameters);
         return new(200, id, result.Revoke && actorId == id);
     }
 
     private static AdminMutationOutcome Conflict() => new(409, Error: "This account has changed. Reload its details before trying again.");
     private static AdminMutationOutcome Failure(IdentityResult result) => result.Errors.Any(error => error.Code == "ConcurrencyFailure")
         ? Conflict() : new(400, Error: string.Join(" ", result.Errors.Select(error => error.Description)));
-    private void Audit(string operation, string actorId, string userId) =>
-        logger.LogInformation("Administrator {ActorId} performed {Operation} on account {UserId}", actorId, operation, userId);
 }

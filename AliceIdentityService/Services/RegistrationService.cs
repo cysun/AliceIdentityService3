@@ -9,7 +9,7 @@ using Npgsql;
 namespace AliceIdentityService.Services;
 
 public sealed class RegistrationService(UserManager<User> users, AisDbContext database,
-    IAccountEmailSender mail, AccountEmailLimit limit)
+    IAccountEmailSender mail, AccountEmailLimit limit, ILogger<RegistrationService> logger)
 {
     public async Task<IdentityResult> RegisterAsync(RegistrationInputModel input, CancellationToken cancellationToken)
     {
@@ -26,17 +26,20 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
         if (!await users.Users.AnyAsync(existing => existing.NormalizedEmail == normalized ||
             existing.NormalizedUserName == users.NormalizeName(user.UserName), cancellationToken))
         {
-            IdentityResult result;
-            try { result = await users.CreateAsync(user); }
+            try
+            {
+                var result = await users.CreateAsync(user);
+                if (result.Succeeded)
+                    logger.LogInformation("A new account created for {Email} ({UserId})", OperationLog.Text(user.Email), user.Id);
+                else if (result.Errors.Any(error => error.Code is not ("DuplicateEmail" or "DuplicateUserName")))
+                    return result;
+            }
             catch (DbUpdateException error) when (error.InnerException is PostgresException
             { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "UserNameIndex" })
             {
                 // A concurrent registration won the unique username race. Never overwrite it.
                 database.ChangeTracker.Clear();
-                result = IdentityResult.Success;
             }
-            if (!result.Succeeded && result.Errors.Any(error => error.Code is not ("DuplicateEmail" or "DuplicateUserName")))
-                return result;
         }
         // Existing accounts keep their password/profile. Only a matching unconfirmed
         // address is eligible for another message, subject to the same resend limit.
@@ -59,7 +62,7 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
             ["code"] = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token)),
             ["oidcContext"] = context
         });
-        await mail.SendConfirmationAsync(user.Email!, user.FullName, path, cancellationToken);
+        await mail.SendConfirmationAsync(user, path, cancellationToken);
     }
 
     public async Task<bool> CanConfirmAsync(AccountEmailLinkModel input)
@@ -91,6 +94,7 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
             return passwordResult;
         }
         await transaction.CommitAsync(cancellationToken);
+        logger.LogInformation("Account {Email} ({UserId}) confirmed its email and set a password", OperationLog.Text(user.Email), user.Id);
         return IdentityResult.Success;
     }
 

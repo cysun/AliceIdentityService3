@@ -17,7 +17,7 @@ namespace AliceIdentityService.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class AuthorizationController(SignInManager<User> signIn, IOpenIddictApplicationManager applications,
     IOpenIddictAuthorizationManager authorizations, OidcLoginContext loginContext, OidcPrincipalService principals,
-    IAntiforgery antiforgery) : Controller
+    IAntiforgery antiforgery, ILogger<AuthorizationController> logger) : Controller
 {
     private const string Scheme = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme;
 
@@ -65,11 +65,16 @@ public sealed class AuthorizationController(SignInManager<User> signIn, IOpenIdd
         if (user is null || !await principals.CanSignInAsync(user)) return ProtocolError(Errors.LoginRequired, "Sign-in is required.");
         var principal = await principals.CreateAsync(user, request.GetScopes(), issued!.Value.ToUnixTimeSeconds());
         object? authorization = null;
-        await foreach (var item in authorizations.FindAsync(subject: user.Id, client: await applications.GetIdAsync(application),
+        var applicationId = (await applications.GetIdAsync(application))!;
+        await foreach (var item in authorizations.FindAsync(subject: user.Id, client: applicationId,
             status: Statuses.Valid, type: AuthorizationTypes.Permanent, scopes: principal.GetScopes())) authorization = item;
-        authorization ??= await authorizations.CreateAsync(principal, user.Id, (await applications.GetIdAsync(application))!,
-            AuthorizationTypes.Permanent, principal.GetScopes());
-        principal.SetAuthorizationId(await authorizations.GetIdAsync(authorization));
+        var creating = authorization is null;
+        authorization ??= await authorizations.CreateAsync(principal, user.Id, applicationId, AuthorizationTypes.Permanent, principal.GetScopes());
+        var authorizationId = await authorizations.GetIdAsync(authorization);
+        if (creating)
+            logger.LogInformation("Created an authorization for client {ClientId} and account {Email} ({UserId}) with scopes {Scopes} (authorization {AuthorizationId})",
+                OperationLog.Text(request.ClientId), OperationLog.Text(user.Email), user.Id, string.Join(" ", principal.GetScopes()), authorizationId);
+        principal.SetAuthorizationId(authorizationId);
         return SignIn(principal, Scheme);
     }
 

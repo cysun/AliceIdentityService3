@@ -21,7 +21,8 @@ public sealed class PasswordResetTokenProvider(IDataProtectionProvider protectio
     IOptions<PasswordResetTokenOptions> options, ILogger<DataProtectorTokenProvider<User>> logger)
     : DataProtectorTokenProvider<User>(protection, options, logger);
 
-public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEmailSender mail, AccountEmailLimit limit)
+public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEmailSender mail, AccountEmailLimit limit,
+    ILogger<PasswordRecoveryService> logger)
 {
     public async Task RequestAsync(string email, string? context, CancellationToken cancellationToken)
     {
@@ -38,7 +39,7 @@ public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEma
             ["code"] = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token)),
             ["oidcContext"] = context
         });
-        await mail.SendPasswordResetAsync(user.Email!, user.FullName, path, cancellationToken);
+        await mail.SendPasswordResetAsync(user, path, cancellationToken);
     }
 
     public async Task<User?> FindResetUserAsync(AccountEmailLinkModel input)
@@ -56,7 +57,10 @@ public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEma
         if (user is null) return IdentityResult.Failed(users.ErrorDescriber.InvalidToken());
         // Identity saves the password hash, security stamp and concurrency stamp in one update.
         // Concurrent uses cannot both succeed; all older reset links/cookies/grants become invalid.
-        return await users.ResetPasswordAsync(user, Decode(input.Code)!, input.Password);
+        var result = await users.ResetPasswordAsync(user, Decode(input.Code)!, input.Password);
+        if (result.Succeeded)
+            logger.LogInformation("Password reset by email recovery for {Email} ({UserId})", OperationLog.Text(user.Email), user.Id);
+        return result;
     }
 
     private static string? Decode(string code)

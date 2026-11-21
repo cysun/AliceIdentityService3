@@ -36,7 +36,7 @@ internal sealed class OidcTestClient(PostgresTestDatabase database, Authenticati
     public string State { get; } = Guid.NewGuid().ToString("N");
     public string Nonce { get; } = Guid.NewGuid().ToString("N");
 
-    public static async Task<OidcTestClient> Create(Action<IServiceCollection>? configure = null)
+    public static async Task<OidcTestClient> Create(Action<IServiceCollection>? configure = null, TestLogFile? log = null)
     {
         var database = await PostgresTestDatabase.CreateAsync();
         await database.InitializeSchemaAsync();
@@ -68,7 +68,7 @@ internal sealed class OidcTestClient(PostgresTestDatabase database, Authenticati
             if (!confidential) application.Requirements.Add(Requirements.Features.ProofKeyForCodeExchange);
             await applications.CreateAsync(application);
         }
-        return new(database, new AuthenticationFactory(database.Db.Database.GetConnectionString()!, configure));
+        return new(database, new AuthenticationFactory(database.Db.Database.GetConnectionString()!, configure, log));
     }
 
     public Dictionary<string, string?> Parameters() => new()
@@ -214,8 +214,10 @@ public sealed class OidcTests
     [PostgresFact]
     public async Task PublicPkceClientCompletesLoginDiscoveryCodeExchangeRefreshAndUserInfo()
     {
-        await using var client = await OidcTestClient.Create();
+        using var log = new TestLogFile();
+        await using var client = await OidcTestClient.Create(log: log);
         var tokens = await client.Tokens();
+        var beforeReads = log.Lines().Where(line => line.StartsWith("[INF]")).ToArray();
         var idToken = await client.ValidateIdToken(tokens.GetProperty("id_token").GetString()!);
         Assert.Equal(client.Nonce, idToken.GetClaim("nonce").Value);
         Assert.Equal(OidcTestClient.Email, idToken.GetClaim("name").Value);
@@ -235,6 +237,9 @@ public sealed class OidcTests
         var profile = await info.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(idToken.Subject, profile.GetProperty("sub").GetString());
         Assert.True(profile.GetProperty("email_verified").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK, (await client.Browser.GetAsync("/api/admin/users?q=quiet-search")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.Browser.GetAsync("/api/admin/users/" + idToken.Subject)).StatusCode);
+        Assert.Equal(beforeReads, log.Lines().Where(line => line.StartsWith("[INF]")));
 
         var refreshed = await client.Refresh(tokens.GetProperty("refresh_token").GetString()!);
         Assert.True(refreshed.IsSuccessStatusCode, await refreshed.Content.ReadAsStringAsync());
@@ -246,6 +251,13 @@ public sealed class OidcTests
             .Where(token => token.Type == TokenTypeIdentifiers.RefreshToken).ToListAsync();
         Assert.Equal(2, refreshEntries.Count);
         Assert.Single(refreshEntries.Select(token => token.ExpirationDate).Distinct());
+        var lines = log.Lines();
+        Assert.Single(lines, line => line.Contains("Created an authorization for client " + OidcTestClient.ClientId));
+        Assert.Single(lines, line => line.Contains("Issued an authorization code to client " + OidcTestClient.ClientId));
+        Assert.Single(lines, line => line.Contains("Issued tokens") && line.Contains("using authorization_code"));
+        Assert.Single(lines, line => line.Contains("Issued tokens") && line.Contains("using refresh_token"));
+        foreach (var secret in new[] { client.Verifier, client.Nonce, tokens.GetProperty("access_token").GetString()!, tokens.GetProperty("refresh_token").GetString()! })
+            Assert.DoesNotContain(lines, line => line.Contains(secret));
     }
 
     [PostgresFact]
@@ -444,7 +456,8 @@ public sealed class OidcTests
     [PostgresFact]
     public async Task LogoutValidatesRedirectAndRequiresAntiforgeryConfirmation()
     {
-        await using var client = await OidcTestClient.Create();
+        using var log = new TestLogFile();
+        await using var client = await OidcTestClient.Create(log: log);
         var tokens = await client.Tokens();
         var parameters = new Dictionary<string, string?>
         {
@@ -470,6 +483,7 @@ public sealed class OidcTests
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal(OidcTestClient.SignedOut + "?state=logout-state", response.Headers.Location!.OriginalString);
         Assert.Equal(HttpStatusCode.Redirect, (await client.Browser.GetAsync("/Account")).StatusCode);
+        Assert.Single(log.Lines(), line => line.Contains("logged out") && line.Contains(OidcTestClient.Email) && line.Contains(OidcTestClient.ClientId));
     }
 
     [PostgresFact]

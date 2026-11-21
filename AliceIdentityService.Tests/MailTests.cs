@@ -1,4 +1,5 @@
 using System.Net;
+using AliceIdentityService.Models;
 using AliceIdentityService.Services;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,11 +17,11 @@ internal sealed class CapturedMailPublisher : IMailPublisher
 {
     public byte[]? Body { get; private set; }
     public bool Fail { get; set; }
-    public Task PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+    public Task<string> PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
     {
         if (Fail) throw new IOException("Test transport failure");
         Body = body.ToArray();
-        return Task.CompletedTask;
+        return Task.FromResult("test-mail");
     }
 }
 
@@ -47,15 +48,17 @@ public sealed class MailTests
     {
         public int Calls { get; private set; }
         public byte[]? Body { get; private set; }
-        public Task PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
+        public async Task<string> PublishAsync(ReadOnlyMemory<byte> body, CancellationToken cancellationToken)
         {
             Calls++;
             Body = body.ToArray();
-            return publish(cancellationToken);
+            await publish(cancellationToken);
+            return "confirmed-test-queue";
         }
     }
 
     private static EmailTemplates Templates() => new(Path.Combine(AppContext.BaseDirectory, "EmailTemplates"));
+    private static User Recipient() => new() { Email = "user@example.test", FirstName = "User", LastName = "<test>" };
     // Copy edits belong to the templates, not assertions about MIME transport.
     private static string Subject(string template) => File.ReadAllText(Path.Combine(
         AppContext.BaseDirectory, "EmailTemplates", template + ".Subject.txt")).Trim();
@@ -64,21 +67,27 @@ public sealed class MailTests
     public async Task PublicationLogsAreAccurateAndPrivateAndUncertainAttemptsAreNeverReplayed()
     {
         var logger = new PublicationLogger();
+        var recipient = new User { Email = "private-recipient@example.test", FirstName = "Private", LastName = "Name" };
         AccountEmailSender Sender(IMailPublisher publisher) => new(Options.Create(new EmailSettings { SenderEmail = "noreply@example.test" }), publisher, Templates(), logger);
         Task Send(IMailPublisher publisher, CancellationToken cancellationToken = default) => Sender(publisher)
-            .SendConfirmationAsync("private-recipient@example.test", "Private Name", "/Account/ConfirmEmail?code=PRIVATE-TOKEN", cancellationToken);
+            .SendConfirmationAsync(recipient, "/Account/ConfirmEmail?code=PRIVATE-TOKEN", cancellationToken);
 
         var success = new RecordingPublisher(_ => Task.CompletedTask);
         await Send(success);
         using var message = MimeMessage.Load(new MemoryStream(Assert.Single(MessagePackSerializer.Deserialize<List<byte[]>>(success.Body!))));
-        Assert.Contains(logger.Lines, line => line.Contains("broker-confirmed") && line.Contains(message.MessageId!));
+        var published = Assert.Single(logger.Lines);
+        Assert.Contains("Email confirmation email published to confirmed-test-queue", published);
+        Assert.Contains(recipient.Id, published);
+        Assert.Contains(message.MessageId!, published);
+        await Sender(success).SendPasswordResetAsync(recipient, "/Account/ResetPassword?code=PRIVATE-RESET", default);
+        Assert.Contains(logger.Lines, line => line.StartsWith("Password reset email published to confirmed-test-queue"));
 
         // The publisher may have accepted these bytes before its acknowledgment was lost.
         var uncertain = new RecordingPublisher(_ => throw new IOException("PRIVATE-TOKEN private-recipient@example.test"));
         var failure = await Assert.ThrowsAsync<MailDeliveryException>(() => Send(uncertain));
         Assert.Equal("The account email publication was not confirmed.", failure.Message);
         Assert.Equal(1, uncertain.Calls);
-        Assert.Contains(logger.Lines, line => line.Contains("not broker-confirmed during broker") && line.Contains(nameof(IOException)));
+        Assert.Contains(logger.Lines, line => line.Contains("not confirmed during broker") && line.Contains(nameof(IOException)));
 
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancelled = new RecordingPublisher(async token => { entered.SetResult(); await Task.Delay(Timeout.Infinite, token); });
@@ -89,11 +98,12 @@ public sealed class MailTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
         Assert.Equal(1, cancelled.Calls);
         Assert.Contains(logger.Lines, line => line.Contains("cancelled during broker"));
-        Assert.Single(logger.Lines, line => line.StartsWith("Account email confirmation broker-confirmed"));
+        Assert.Equal(2, logger.Lines.Count(line => line.Contains("email published to")));
         var output = string.Join('\n', logger.Lines);
         Assert.DoesNotContain("private-recipient", output);
         Assert.DoesNotContain("Private Name", output);
         Assert.DoesNotContain("PRIVATE-TOKEN", output);
+        Assert.DoesNotContain("PRIVATE-RESET", output);
         Assert.DoesNotContain("/Account/ConfirmEmail", output);
     }
 
@@ -119,7 +129,7 @@ public sealed class MailTests
             await channel.QueueDeleteAsync(options.QueueName);
 
             // A subsequent explicit request can publish on a fresh channel without a mail consumer.
-            await publisher.PublishAsync(new byte[] { 42 }, default);
+            Assert.Equal(options.QueueName, await publisher.PublishAsync(new byte[] { 42 }, default));
             Assert.Equal(0U, await channel.ConsumerCountAsync(options.QueueName));
             Assert.Equal(1U, await channel.MessageCountAsync(options.QueueName));
             var delivery = await channel.BasicGetAsync(options.QueueName, autoAck: true);
@@ -160,7 +170,7 @@ public sealed class MailTests
             var publisher = new CapturedMailPublisher();
             var sender = new AccountEmailSender(Options.Create(new EmailSettings { SenderEmail = "noreply@example.test" }),
                 publisher, templates, NullLogger<AccountEmailSender>.Instance);
-            await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendConfirmationAsync("user@example.test", "User", "/Account/ConfirmEmail", default));
+            await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendConfirmationAsync(Recipient(), "/Account/ConfirmEmail", default));
             Assert.Null(publisher.Body);
         }
         finally { directory.Delete(recursive: true); }
@@ -177,7 +187,7 @@ public sealed class MailTests
         }));
         await using var scope = factory.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<IAccountEmailSender>()
-            .SendConfirmationAsync("user@example.test", "User", "/Account/ConfirmEmail?code=test", default);
+            .SendConfirmationAsync(Recipient(), "/Account/ConfirmEmail?code=test", default);
         var messages = MessagePackSerializer.Deserialize<List<byte[]>>(publisher.Body!);
         using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(messages)));
         Assert.Equal(Subject("EmailVerification"), message.Subject);
@@ -196,8 +206,8 @@ public sealed class MailTests
             SenderEmail = "noreply@example.test"
         }), publisher, Templates(), NullLogger<AccountEmailSender>.Instance);
         var path = (reset ? "/Account/ResetPassword" : "/Account/ConfirmEmail") + "?code=secret&userId=123";
-        if (reset) await sender.SendPasswordResetAsync("user@example.test", "User <test>", path, default);
-        else await sender.SendConfirmationAsync("user@example.test", "User <test>", path, default);
+        if (reset) await sender.SendPasswordResetAsync(Recipient(), path, default);
+        else await sender.SendConfirmationAsync(Recipient(), path, default);
         var batch = MessagePackSerializer.Deserialize<List<byte[]>>(publisher.Body!);
         using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(batch)));
         Assert.Equal("user@example.test", message.To.Mailboxes.Single().Address);
@@ -209,8 +219,8 @@ public sealed class MailTests
         Assert.DoesNotContain("{{link}}", message.TextBody + message.HtmlBody);
         Assert.False(string.IsNullOrEmpty(message.MessageId));
         publisher.Fail = true;
-        await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendConfirmationAsync("user@example.test", "User", "/Account/ConfirmEmail", default));
-        await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendPasswordResetAsync("user@example.test", "User", "/Account/ResetPassword", default));
+        await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendConfirmationAsync(Recipient(), "/Account/ConfirmEmail", default));
+        await Assert.ThrowsAsync<MailDeliveryException>(() => sender.SendPasswordResetAsync(Recipient(), "/Account/ResetPassword", default));
     }
 
     [Theory]
@@ -245,7 +255,7 @@ public sealed class MailTests
             options.Port = 5672; options.PublishTimeoutSeconds = 10;
             var sender = new AccountEmailSender(Options.Create(new EmailSettings { SenderEmail = "noreply@example.test" }), publisher, Templates(),
                 NullLogger<AccountEmailSender>.Instance);
-            await sender.SendConfirmationAsync("user@example.test", "Test", "/Account/ConfirmEmail?code=test", default);
+            await sender.SendConfirmationAsync(Recipient(), "/Account/ConfirmEmail?code=test", default);
             var delivery = await channel.BasicGetAsync(queue, autoAck: true);
             Assert.NotNull(delivery);
             Assert.True(delivery.BasicProperties.Persistent);
@@ -254,7 +264,7 @@ public sealed class MailTests
             using var message = await MimeMessage.LoadAsync(new MemoryStream(Assert.Single(messages)));
             Assert.Contains("/Account/ConfirmEmail?code=test", message.TextBody);
             Assert.Equal("user@example.test", message.To.Mailboxes.Single().Address);
-            await sender.SendPasswordResetAsync("user@example.test", "Test", "/Account/ResetPassword?code=test", default);
+            await sender.SendPasswordResetAsync(Recipient(), "/Account/ResetPassword?code=test", default);
             var resetDelivery = await channel.BasicGetAsync(queue, autoAck: true);
             Assert.NotNull(resetDelivery);
             Assert.True(resetDelivery.BasicProperties.Persistent);

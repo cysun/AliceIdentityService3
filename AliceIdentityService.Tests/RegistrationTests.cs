@@ -17,16 +17,16 @@ internal sealed class CapturedAccountMail : IAccountEmailSender
     public List<(string Email, string Name, string Path)> Messages { get; } = [];
     public List<(string Email, string Name, string Path)> Resets { get; } = [];
     public bool Fail { get; set; }
-    public Task SendPasswordResetAsync(string email, string name, string resetPath, CancellationToken cancellationToken)
+    public Task SendPasswordResetAsync(User user, string resetPath, CancellationToken cancellationToken)
     {
         if (Fail) throw new MailDeliveryException();
-        lock (Resets) Resets.Add((email, name, resetPath));
+        lock (Resets) Resets.Add((user.Email!, user.FullName, resetPath));
         return Task.CompletedTask;
     }
-    public Task SendConfirmationAsync(string email, string name, string confirmationPath, CancellationToken cancellationToken)
+    public Task SendConfirmationAsync(User user, string confirmationPath, CancellationToken cancellationToken)
     {
         if (Fail) throw new MailDeliveryException();
-        lock (Messages) Messages.Add((email, name, confirmationPath));
+        lock (Messages) Messages.Add((user.Email!, user.FullName, confirmationPath));
         return Task.CompletedTask;
     }
 }
@@ -212,17 +212,28 @@ public sealed class RegistrationTests
     {
         await using var database = await Database();
         var mail = new CapturedAccountMail { Fail = true };
-        using var factory = Factory(database, mail);
+        using var log = new TestLogFile();
+        using var factory = new AuthenticationFactory(database.Db.Database.GetConnectionString()!,
+            services => services.AddSingleton<IAccountEmailSender>(mail), log);
         using var browser = factory.Browser();
         var result = await Post(browser, "Register", Input());
         Assert.Equal(HttpStatusCode.ServiceUnavailable, result.StatusCode);
         Assert.Contains("could not queue", await result.Content.ReadAsStringAsync());
         Assert.False((await database.Db.Users.AsNoTracking().SingleAsync()).EmailConfirmed);
+        Assert.Contains(log.Lines(), line => line.Contains("A new account created for " + Email));
+        await Post(browser, "Register", Input());
         mail.Fail = false;
         factory.Clock.Advance(TimeSpan.FromMinutes(1));
         Assert.Equal(HttpStatusCode.OK, (await Post(browser, "ResendConfirmation", new() { ["Email"] = Email })).StatusCode);
-        await Confirm(browser, Assert.Single(mail.Messages).Path);
+        var link = Assert.Single(mail.Messages).Path;
+        await Confirm(browser, link, "weak");
+        Assert.DoesNotContain(log.Lines(), line => line.Contains("confirmed its email"));
+        await Confirm(browser, link);
         Assert.True((await database.Db.Users.AsNoTracking().SingleAsync()).EmailConfirmed);
+        var lines = log.Lines();
+        Assert.Single(lines, line => line.Contains("A new account created"));
+        Assert.Single(lines, line => line.Contains(Email) && line.Contains("confirmed its email"));
+        Assert.DoesNotContain(lines, line => line.Contains(Password) || line.Contains(Confirmation(link)["code"]));
     }
 
     [PostgresFact]

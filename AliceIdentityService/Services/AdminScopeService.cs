@@ -69,6 +69,7 @@ public sealed class AdminScopeService(AisDbContext database, AdminWriteGuard gua
         if (id is not null && record is null) return new(404, Error: "This scope no longer exists.");
         if (record is not null && AdminUserVersion.For(record.Id!, record.ConcurrencyToken) != version) return Conflict();
         if (record is not null && Standard(record.Name)) return new(400, Error: "Standard scopes are managed by the service.");
+        var descriptionChanged = input is not null && record?.Description != input.Description?.Trim();
         try
         {
             if (input is null)
@@ -106,8 +107,14 @@ public sealed class AdminScopeService(AisDbContext database, AdminWriteGuard gua
         }
         catch (OpenIddictExceptions.ConcurrencyException) { return Conflict(); }
         catch (OpenIddictExceptions.ValidationException) { return new(400, Error: "The scope is invalid or its name is already in use. Reload and check the fields."); }
-        logger.LogInformation("Administrator {ActorId} performed {Operation} on scope {ScopeId}", actor.FindFirstValue(Claims.Subject),
-            input is null ? "scope-delete" : record is null ? "scope-create" : "scope-edit", id);
+        var operation = input is null ? "deleted" : record is null ? "created" : "updated";
+        OperationLog.Admin(logger, actor, operation, "scope", record?.Name ?? input?.Name.Trim(), id, input is null ? null : new
+        {
+            DisplayName = OperationLog.Text(input.DisplayName?.Trim()),
+            DescriptionChanged = descriptionChanged,
+            ClaimTypes = input.Claims.Select(value => value.Trim()).ToArray(),
+            Resources = input.Resources.Select(OperationLog.ScopeResource).ToArray()
+        });
         return new(200, id);
     }
 

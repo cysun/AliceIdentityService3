@@ -153,7 +153,7 @@ See the [Step 11 review](docs/reviews/step-11.md) for limits, imported-client be
 
 Step 12 is a focused review of AIS3's existing mail publisher. AIS3 renders confirmation/reset messages, serializes the agreed MessagePack/MIME contract, publishes persistent messages to the durable RabbitMQ queue, and awaits broker confirmation. Successful publication does not require an active consumer. AliceMailService owns subsequent SMTP delivery, retries and failed-message recovery.
 
-Publication logs now identify mail kind and failure stage, include the generated MIME Message-ID after broker confirmation, and omit recipients, bodies, action links and raw exception text. Failed or cancelled publication is not reported as successful. No automatic replay is added: if the broker accepted a message but its acknowledgment was lost, another request can produce a duplicate.
+After RabbitMQ confirms publication, AIS3 logs the mail kind, destination queue, account ID and MIME Message-ID. Failures record the stage and exception type. Mail logs omit recipient addresses, message bodies, action links and raw exception text. If the broker accepts a message but its acknowledgment is lost, a later request can produce a duplicate.
 
 Tests cover successful publication with no consumer, recovery on a later request after a channel failure, cancellation, no automatic replay and private logging, alongside the existing connection-failure, serialization, template and account-recovery tests. There is no Mail administration page, diagnostic API/command, metrics subsystem, consumer management or SMTP test harness in AIS3.
 
@@ -161,7 +161,7 @@ See the [Step 12 review](docs/reviews/step-12.md) for publication testing instru
 
 ## Staging and hardening
 
-Step 13 adds Linux hosting examples for one Nginx/systemd-managed ASP.NET Core process. It validates the public origin/host, proxy trust, certificates and persistent encrypted Data Protection storage before accepting traffic. Cookies and account links retain a stable application name across releases; automatic certificate creation and reuse keep setup simple while preserving keys across deployments. Deployed responses add HSTS and browser security headers, and request failures return a generic response with private logs based on route templates and trace IDs.
+Step 13 adds Linux hosting examples for one Nginx/systemd-managed ASP.NET Core process. It validates the public origin/host, proxy trust, certificates and persistent encrypted Data Protection storage before accepting traffic. Cookies and account links retain a stable application name across releases. AIS3 creates missing certificates and reuses existing keys across deployments. Deployed responses add HSTS and browser security headers. AIS3 logs account, authentication and administrative operations. On an unhandled exception, it returns a generic error and logs the route template, trace ID and exception type.
 
 The [deployment guide](docs/deployment.md) covers private configuration, the staging sample, service permissions, local health probes, logging, persistent certificates and deployment/rollback. No SQL or database migration runs during startup. Staging uses isolated data and a separate RabbitMQ queue; production cutover remains gated by Steps 14–15. Step 13 is approved; retain its [staging checklist](docs/reviews/step-13.md) for deployment checks.
 

@@ -121,7 +121,8 @@ public sealed class AdminClientTests
     [PostgresFact]
     public async Task CreationValidatesUrlsScopesCredentialsAndDuplicatesWithoutLeakingSecrets()
     {
-        await using var client = await OidcTestClient.Create(); await Login(client.Browser);
+        using var log = new TestLogFile();
+        await using var client = await OidcTestClient.Create(log: log); await Login(client.Browser);
         foreach (var url in new[] { "relative", "http://remote.example/callback", "https://user:pass@example.test/path", "https://example.test/path#fragment", "https://*.example.test/callback", "javascript:alert(1)", "my-app:/callback", "https://example.test/\ncallback", "http://localhost.example.test/cb", null! })
         {
             var invalid = Input(); invalid.RedirectUris = [url];
@@ -145,7 +146,9 @@ public sealed class AdminClientTests
             return input;
         })) Assert.Equal(HttpStatusCode.BadRequest, (await Write(client.Browser, "", invalid)).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await Write(client.Browser, "", new { clientId = "missing-flags", displayName = "test", redirectUris = new[] { OidcTestClient.Callback }, postLogoutRedirectUris = Array.Empty<string>(), scopes = Array.Empty<string>() })).StatusCode);
-        var data = await Create(client.Browser, Input(confidential: true));
+        var input = Input(confidential: true);
+        input.RedirectUris = [OidcTestClient.Callback + "?parameter=PRIVATE-CALLBACK"];
+        var data = await Create(client.Browser, input);
         Assert.True(data.Client.HasSecret); Assert.True(data.Client.RequirePkce); Assert.True(data.CanManage);
         var record = await client.Database.Db.Set<OpenIddictEntityFrameworkCoreApplication>().AsNoTracking().SingleAsync(app => app.Id == data.Client.Id);
         Assert.NotEqual(Secret, record.ClientSecret); Assert.NotNull(record.ClientSecret);
@@ -162,6 +165,13 @@ public sealed class AdminClientTests
         Assert.Equal(HttpStatusCode.BadRequest, (await client.Browser.GetAsync("/api/admin/clients?pageSize=101")).StatusCode);
         var page = (await client.Browser.GetFromJsonAsync<AdminClientPage>("/api/admin/clients?pageSize=1&page=999"))!;
         Assert.Single(page.Items); Assert.Equal(page.TotalCount, page.Page);
+        var lines = log.Lines();
+        var created = Assert.Single(lines, line => line.Contains("created client created-client"));
+        Assert.Contains(OidcTestClient.Email, created);
+        Assert.Contains(data.Client.Id, created);
+        Assert.Contains(OidcTestClient.Callback, created);
+        Assert.Contains("department", created);
+        Assert.DoesNotContain(lines, line => line.Contains(Secret) || line.Contains(record.ClientSecret!) || line.Contains("PRIVATE-CALLBACK"));
     }
 
     [PostgresFact]

@@ -1,6 +1,3 @@
-using System.Diagnostics;
-using Microsoft.AspNetCore.Routing;
-
 namespace AliceIdentityService.Services;
 
 public sealed class HostingSecurityMiddleware(RequestDelegate next, IHostEnvironment environment, ILogger<HostingSecurityMiddleware> logger)
@@ -23,7 +20,6 @@ public sealed class HostingSecurityMiddleware(RequestDelegate next, IHostEnviron
             }
             return Task.CompletedTask;
         });
-        var started = Stopwatch.GetTimestamp();
         try { await next(context); }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
@@ -31,7 +27,8 @@ public sealed class HostingSecurityMiddleware(RequestDelegate next, IHostEnviron
         }
         catch (Exception error) when (environment.IsDeployed())
         {
-            logger.LogError("Request {TraceId} failed. Failure type: {FailureType}", context.TraceIdentifier, error.GetType().Name);
+            var route = (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "middleware";
+            logger.LogError("Unhandled {FailureType} at {Route} (trace {TraceId})", error.GetType().Name, route, context.TraceIdentifier);
             if (context.Response.HasStarted) context.Abort();
             else
             {
@@ -41,14 +38,6 @@ public sealed class HostingSecurityMiddleware(RequestDelegate next, IHostEnviron
                 context.Response.Headers.CacheControl = "no-store";
                 await context.Response.WriteAsync("The request could not be completed. Please try again.");
             }
-        }
-        finally
-        {
-            if (environment.IsDeployed() && !context.Request.Path.StartsWithSegments("/health"))
-                logger.LogInformation("Request {TraceId} {Method} {Route} returned {StatusCode} in {ElapsedMilliseconds} ms",
-                    context.TraceIdentifier, context.Request.Method,
-                    (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText ?? "unmatched/static",
-                    context.Response.StatusCode, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }
     }
 }

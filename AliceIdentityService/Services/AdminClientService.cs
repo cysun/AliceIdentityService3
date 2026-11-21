@@ -74,7 +74,8 @@ public sealed class AdminClientService(AisDbContext database, AdminWriteGuard gu
         var deleting = confirmation is not null;
         if (!deleting && record is not null && !await CanManageAsync(record, cancellationToken))
             return Invalid("This imported client uses a client type, consent mode or flow outside the supported authorization-code configuration. Its settings are read-only.");
-        var operation = deleting ? "client-delete" : credentials is not null ? "client-credentials" : record is null ? "client-create" : "client-edit";
+        var operation = deleting ? "deleted" : credentials is not null ? "changed credentials for" : record is null ? "created" : "updated";
+        Dictionary<string, object?>? parameters = null;
         try
         {
             if (deleting)
@@ -101,6 +102,12 @@ public sealed class AdminClientService(AisDbContext database, AdminWriteGuard gu
                     descriptor.ClientType = credentials.ClientType;
                     descriptor.ClientSecret = credentials.ClientType == ClientTypes.Public ? null : credentials.ClientSecret;
                     if (credentials.ClientType == ClientTypes.Public) descriptor.Requirements.Add(Requirements.Features.ProofKeyForCodeExchange);
+                    parameters = new()
+                    {
+                        ["PreviousClientType"] = record.ClientType,
+                        ["ClientType"] = descriptor.ClientType,
+                        ["RequirePkce"] = descriptor.Requirements.Contains(Requirements.Features.ProofKeyForCodeExchange)
+                    };
                 }
                 else
                 {
@@ -129,6 +136,16 @@ public sealed class AdminClientService(AisDbContext database, AdminWriteGuard gu
                     descriptor.Permissions.UnionWith(requestedScopes);
                     Set(descriptor.Permissions, Permissions.GrantTypes.RefreshToken, input.AllowRefreshTokens);
                     Set(descriptor.Requirements, Requirements.Features.ProofKeyForCodeExchange, input.RequirePkce);
+                    parameters = new()
+                    {
+                        ["DisplayName"] = OperationLog.Text(descriptor.DisplayName),
+                        ["ClientType"] = descriptor.ClientType,
+                        ["RequirePkce"] = input.RequirePkce,
+                        ["AllowRefreshTokens"] = input.AllowRefreshTokens,
+                        ["Scopes"] = input.Scopes.Select(value => value.Trim()).ToArray(),
+                        ["RedirectEndpoints"] = descriptor.RedirectUris.Select(OperationLog.RedirectEndpoint).ToArray(),
+                        ["PostLogoutRedirectEndpoints"] = descriptor.PostLogoutRedirectUris.Select(OperationLog.RedirectEndpoint).ToArray()
+                    };
                 }
                 // Populating the descriptor keeps the existing hash and all unrelated metadata intact.
                 // OpenIddict hashes only a changed secret; plaintext is never returned to the browser.
@@ -136,15 +153,15 @@ public sealed class AdminClientService(AisDbContext database, AdminWriteGuard gu
                 else await applications.UpdateAsync(record, descriptor, cancellationToken);
                 if (revoke)
                 {
-                    await tokens.RevokeByApplicationIdAsync(id!, cancellationToken);
-                    await authorizations.RevokeByApplicationIdAsync(id!, cancellationToken);
+                    parameters["RevokedTokens"] = await tokens.RevokeByApplicationIdAsync(id!, cancellationToken);
+                    parameters["RevokedAuthorizations"] = await authorizations.RevokeByApplicationIdAsync(id!, cancellationToken);
                 }
             }
             await transaction.CommitAsync(cancellationToken);
         }
         catch (OpenIddictExceptions.ConcurrencyException) { return Conflict(); }
         catch (OpenIddictExceptions.ValidationException) { return Invalid("The client settings could not be saved. Check its ID, URLs and credential configuration, then reload before retrying."); }
-        logger.LogInformation("Administrator {ActorId} performed {Operation} on client {ClientRecordId}", actor.FindFirstValue(Claims.Subject), operation, id);
+        OperationLog.Admin(logger, actor, operation, "client", record?.ClientId ?? input?.ClientId.Trim(), id, parameters);
         return new(200, id);
     }
 
