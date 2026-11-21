@@ -22,9 +22,5 @@
   <ItemGroup>
     <None Remove="EmailTemplates/**" />
     <Content Include="EmailTemplates/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-    <Content Update="appsettings*.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Scripts\" />
   </ItemGroup>
 </Project>
