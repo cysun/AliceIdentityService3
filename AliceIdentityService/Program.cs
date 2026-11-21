@@ -19,6 +19,8 @@ builder.Services.AddSerilog((services, logger) =>
             .MinimumLevel.Override("OpenIddict", Serilog.Events.LogEventLevel.Warning)
             .MinimumLevel.Override("Npgsql", Serilog.Events.LogEventLevel.Warning);
 });
+if (!builder.Environment.IsDevelopment())
+    builder.WebHost.UseUrls("http://localhost:5000");
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 builder.Services.AddAisData();
 builder.Services.AddAisAuthentication();

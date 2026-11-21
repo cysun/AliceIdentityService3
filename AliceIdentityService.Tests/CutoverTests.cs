@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AliceIdentityService.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,13 @@ public sealed class CutoverDatabaseFactAttribute : FactAttribute
 [Collection("PostgreSQL")]
 public sealed class CutoverTests
 {
+    private sealed record CutoverReport(
+        [property: JsonPropertyName("recordedUtc")] DateTimeOffset RecordedUtc,
+        [property: JsonPropertyName("passed")] bool Passed,
+        [property: JsonPropertyName("completedChecks")] List<string> CompletedChecks,
+        [property: JsonPropertyName("fingerprint")] DatabaseFingerprint? Fingerprint,
+        [property: JsonPropertyName("limitations")] string Limitations);
+
     [CutoverDatabaseFact]
     public async Task FinalRestoreMatchesFrozenAis2BeforeApplicationWrites()
     {
@@ -66,14 +74,13 @@ public sealed class CutoverTests
             var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
             if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
             await using var file = new FileStream(path, options);
-            await JsonSerializer.SerializeAsync(file, new
-            {
-                recordedUtc = DateTimeOffset.UtcNow,
+            var report = new CutoverReport(
+                DateTimeOffset.UtcNow,
                 passed,
-                completedChecks = checks,
-                fingerprint = baseline,
-                limitations = "Read-only data validation before application writes; not a deployment or client smoke-test approval."
-            }, new JsonSerializerOptions { WriteIndented = true });
+                checks,
+                baseline,
+                "Read-only data validation before application writes; not a deployment or client smoke-test approval.");
+            await JsonSerializer.SerializeAsync(file, report, new JsonSerializerOptions { WriteIndented = true });
         }
     }
 
