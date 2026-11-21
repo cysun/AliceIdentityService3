@@ -1,12 +1,14 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using AliceIdentityService.Data;
 using AliceIdentityService.Models;
 using AliceIdentityService.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -208,6 +210,57 @@ public sealed class RegistrationTests
     }
 
     [PostgresFact]
+    public async Task ResendLogsEligibilityAndBrokerOutcomeAndEmailLookupsAreOrdered()
+    {
+        await using var database = await Database();
+        using var log = new TestLogFile();
+        var publisher = new CapturedMailPublisher();
+        using var factory = new AuthenticationFactory(database.Db.Database.GetConnectionString()!, services =>
+        {
+            services.AddSingleton<IMailPublisher>(publisher);
+            services.PostConfigure<EmailSettings>(settings => settings.SenderEmail = "noreply@example.test");
+            services.ConfigureDbContext<AisDbContext>(options => options.ConfigureWarnings(warnings =>
+                warnings.Throw(CoreEventId.RowLimitingOperationWithoutOrderByWarning)));
+        }, log);
+        using var browser = factory.Browser();
+        Task<HttpResponseMessage> Resend(string email) => Post(browser, "ResendConfirmation", new() { ["Email"] = email });
+
+        await Post(browser, "Register", Input());
+        var account = await database.Db.Users.AsNoTracking().SingleAsync();
+        await browser.GetStringAsync("/Account/ResendConfirmation");
+        Assert.DoesNotContain(log.Lines(), line => line.Contains("Confirmation email resend"));
+
+        await Resend(Email);
+        factory.Clock.Advance(TimeSpan.FromMinutes(1));
+        publisher.Fail = true;
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await Resend(Email)).StatusCode);
+        Assert.Single(log.Lines(), line => line.Contains("Email confirmation email published to test-mail")); // Initial registration only.
+        factory.Clock.Advance(TimeSpan.FromMinutes(1));
+        publisher.Fail = false;
+        Assert.Equal(HttpStatusCode.OK, (await Resend(Email)).StatusCode);
+
+        await database.Db.Users.Where(user => user.Id == account.Id).ExecuteUpdateAsync(update => update.SetProperty(user => user.EmailConfirmed, true));
+        factory.Clock.Advance(TimeSpan.FromMinutes(1));
+        await Resend(Email);
+        await Resend("missing@example.test");
+        var users = database.Services.GetRequiredService<UserManager<User>>();
+        Assert.True((await users.CreateAsync(new User { Email = Email, UserName = "other-legacy-account@example.test" })).Succeeded);
+        factory.Clock.Advance(TimeSpan.FromMinutes(1));
+        await Resend(Email);
+        var recovery = await Post(browser, "ForgotPassword", new() { ["Email"] = "recovery@example.test" });
+        Assert.Equal(HttpStatusCode.OK, recovery.StatusCode);
+
+        var lines = log.Lines();
+        Assert.Contains(lines, line => line.Contains($"resend skipped for {Email} because the recipient rate limit was reached"));
+        Assert.Contains(lines, line => line.Contains($"resend skipped for {Email} because the address is already confirmed"));
+        Assert.Contains(lines, line => line.Contains("resend skipped for missing@example.test because no account matches the address"));
+        Assert.Contains(lines, line => line.Contains($"resend skipped for {Email} because multiple accounts match the address"));
+        Assert.Equal(2, lines.Count(line => line.Contains($"Confirmation email resend requested for {Email} (account {account.Id})")));
+        Assert.Equal(2, lines.Count(line => line.Contains($"Email confirmation email published to test-mail for account {account.Id}")));
+        Assert.Single(lines, line => line.Contains($"email publication for account {account.Id} not confirmed during broker"));
+    }
+
+    [PostgresFact]
     public async Task FailedPublicationLeavesAnUnconfirmedAccountThatCanBeRetriedWithoutRegistration()
     {
         await using var database = await Database();
@@ -353,7 +406,9 @@ public sealed class RegistrationTests
     {
         await using var database = await Database();
         var mail = new CapturedAccountMail();
-        using var factory = Factory(database, mail);
+        using var log = new TestLogFile();
+        using var factory = new AuthenticationFactory(database.Db.Database.GetConnectionString()!,
+            services => services.AddSingleton<IAccountEmailSender>(mail), log);
         using var browser = factory.Browser();
         for (var i = 0; i < 10; i++)
             Assert.Equal(HttpStatusCode.OK, (await Post(browser, "ResendConfirmation", new() { ["Email"] = "missing@example.test" })).StatusCode);
@@ -361,6 +416,7 @@ public sealed class RegistrationTests
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
         Assert.NotNull(limited.Headers.RetryAfter);
         Assert.Empty(mail.Messages);
+        Assert.Single(log.Lines(), line => line.Contains("Confirmation email resend rejected by the IP rate limit"));
     }
 
     [Fact]

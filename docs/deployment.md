@@ -78,6 +78,8 @@ The public proxy returns 404 for `/health`; local probes use the exact configure
 
 The sample writes timestamped operations to systemd's journal. Registration records the new account's email and ID as soon as creation succeeds. Mail publication records the mail kind, account ID, destination queue and MIME Message-ID when RabbitMQ confirms it. Use the account ID to follow registration through publication and confirmation.
 
+A confirmation email resend records the address and account ID when eligible. Skipped resends log the reason, including the recipient limit, an already confirmed address, or an address matching zero or multiple accounts. The IP limiter logs rejections before reading the form.
+
 AIS3 also records login outcomes, logout, profile and password changes, OIDC authorization and token issuance, and committed administrative changes. Administrator events identify the actor and target and include details such as lock duration, claim type and row ID, or client settings. Ordinary searches, page views and health checks produce no application activity entries. Unhandled request failures still produce an error with the route template, trace ID and exception type.
 
 Operation logs can contain email addresses and profile names. Restrict journal access and configure retention on the host. Keep passwords, tokens, cookies, claim values and message bodies out of diagnostic exports. The application defaults to warning-level framework, database and OpenIddict diagnostics.

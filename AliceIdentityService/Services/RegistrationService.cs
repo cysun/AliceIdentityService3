@@ -43,18 +43,41 @@ public sealed class RegistrationService(UserManager<User> users, AisDbContext da
         }
         // Existing accounts keep their password/profile. Only a matching unconfirmed
         // address is eligible for another message, subject to the same resend limit.
-        await ResendAsync(user.Email!, input.OidcContext, cancellationToken);
+        var (recipient, _) = await GetConfirmationRecipientAsync(user.Email!, cancellationToken);
+        if (recipient is not null) await SendConfirmationAsync(recipient, input.OidcContext, cancellationToken);
         return IdentityResult.Success;
     }
 
     public async Task ResendAsync(string email, string? context, CancellationToken cancellationToken)
     {
+        var (recipient, skipReason) = await GetConfirmationRecipientAsync(email, cancellationToken);
+        if (recipient is null)
+        {
+            logger.LogInformation("Confirmation email resend skipped for {Email} because {Reason}", OperationLog.Text(email.Trim()), skipReason);
+            return;
+        }
+        logger.LogInformation("Confirmation email resend requested for {Email} (account {UserId})", OperationLog.Text(recipient.Email), recipient.Id);
+        await SendConfirmationAsync(recipient, context, cancellationToken);
+    }
+
+    private async Task<(User? Recipient, string? SkipReason)> GetConfirmationRecipientAsync(string email, CancellationToken cancellationToken)
+    {
         var normalized = users.NormalizeEmail(email.Trim());
-        if (!limit.TryAcquire(normalized!)) return;
-        var matches = await users.Users.Where(user => user.NormalizedEmail == normalized).Take(2).ToListAsync(cancellationToken);
+        if (!limit.TryAcquire(normalized!)) return (null, "the recipient rate limit was reached");
+        var matches = await users.Users.Where(user => user.NormalizedEmail == normalized)
+            .OrderBy(user => user.Id).Take(2).ToListAsync(cancellationToken);
         // A legacy database can contain ambiguous email records. Do not guess an identity.
-        if (matches.Count != 1 || matches[0].EmailConfirmed) return;
-        var user = matches[0];
+        return matches switch
+        {
+            [] => (null, "no account matches the address"),
+            [{ EmailConfirmed: true }] => (null, "the address is already confirmed"),
+            [var recipient] => (recipient, null),
+            _ => (null, "multiple accounts match the address")
+        };
+    }
+
+    private async Task SendConfirmationAsync(User user, string? context, CancellationToken cancellationToken)
+    {
         var token = await users.GenerateEmailConfirmationTokenAsync(user);
         var path = QueryHelpers.AddQueryString("/Account/ConfirmEmail", new Dictionary<string, string?>
         {

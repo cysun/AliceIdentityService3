@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using AliceIdentityService.Controllers;
 using AliceIdentityService.Models;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -64,8 +65,18 @@ public static class RegistrationExtensions
                 }));
             options.OnRejected = async (context, cancellationToken) =>
             {
-                context.HttpContext.Response.Headers.RetryAfter = "900";
-                await context.HttpContext.Response.WriteAsync("Too many account requests. Please wait before trying again.", cancellationToken);
+                var http = context.HttpContext;
+                var operation = http.Request.RouteValues["action"] switch
+                {
+                    nameof(AccountController.ResendConfirmation) => "Confirmation email resend",
+                    nameof(AccountController.Register) => "Account registration",
+                    nameof(AccountController.ForgotPassword) => "Password recovery",
+                    _ => "Account email request"
+                };
+                http.RequestServices.GetRequiredService<ILogger<AccountEmailLimit>>()
+                    .LogInformation("{Operation} rejected by the IP rate limit", operation);
+                http.Response.Headers.RetryAfter = "900";
+                await http.Response.WriteAsync("Too many account requests. Please wait before trying again.", cancellationToken);
             };
         });
         return services;

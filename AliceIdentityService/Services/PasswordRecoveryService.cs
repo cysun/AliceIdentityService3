@@ -28,7 +28,8 @@ public sealed class PasswordRecoveryService(UserManager<User> users, IAccountEma
     {
         var normalized = users.NormalizeEmail(email.Trim());
         if (!limit.TryAcquire(normalized!)) return;
-        var matches = await users.Users.Where(user => user.NormalizedEmail == normalized).Take(2).ToListAsync(cancellationToken);
+        var matches = await users.Users.Where(user => user.NormalizedEmail == normalized)
+            .OrderBy(user => user.Id).Take(2).ToListAsync(cancellationToken);
         // Do not guess between legacy accounts sharing an email, or let recovery confirm an address.
         if (matches.Count != 1 || !matches[0].EmailConfirmed || !await users.HasPasswordAsync(matches[0])) return;
         var user = matches[0];
