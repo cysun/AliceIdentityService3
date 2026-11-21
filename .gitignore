@@ -33,4 +33,5 @@ logs/
 *.suo
 # My Settings
 Migrations/
+global.json
 deploy.sh
