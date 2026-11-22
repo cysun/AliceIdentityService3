@@ -18,6 +18,8 @@ public sealed class AdminUserService(AisDbContext database, TimeProvider clock)
         var now = clock.GetUtcNow();
         await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         var query = database.Users.AsNoTracking();
+        if (input.AdministratorsOnly)
+            query = query.Where(user => database.UserClaims.Any(claim => claim.UserId == user.Id && claim.ClaimType == AisConstants.AdminClaim));
         foreach (var term in SearchTerms(input.Q))
         {
             var pattern = Pattern(term);

@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search, RefreshCw } from 'lucide-react';
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
+import { ArrowLeft, LockKeyhole, MailCheck, Search, ShieldCheck, Users } from 'lucide-react';
+import { StatCard } from '@/components/stat-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserTable, StatusBadge } from '@/components/user-table';
 import {
   AdminApiError,
+  type AdminUserCounts,
   type AdminUserDetail,
   type AdminUserPage,
   type UserSort,
@@ -29,12 +38,17 @@ function positiveInteger(value: string | null, fallback: number, maximum: number
   return Number.isInteger(number) && number >= 1 && number <= maximum ? number : fallback;
 }
 function SearchField({ query, onSearch }: { query: string; onSearch: (value: string) => void }) {
-  const [input, setInput] = useState({ query, draft: query });
-  // Synchronize browser Back/Forward without replacing the focused input element.
-  if (input.query !== query) setInput({ query, draft: query });
+  const { key } = useLocation();
+  const navigation = useNavigationType();
+  const [input, setInput] = useState({ key, draft: query, editing: false });
+  if (input.key !== key) {
+    // Keep typing through a pending navigation. Back and Forward restore the saved search.
+    const editing = input.editing && navigation !== 'POP';
+    setInput({ key, draft: editing ? input.draft : query, editing });
+  }
   const draft = input.draft;
   useEffect(() => {
-    if (draft === query) return;
+    if (draft.trim() === query.trim()) return;
     const timer = window.setTimeout(() => onSearch(draft), 300);
     return () => window.clearTimeout(timer);
   }, [draft, query, onSearch]);
@@ -46,7 +60,8 @@ function SearchField({ query, onSearch }: { query: string; onSearch: (value: str
         placeholder="Search by name or email…"
         maxLength={256}
         value={draft}
-        onChange={(event) => setInput({ query, draft: event.target.value })}
+        onChange={(event) => setInput({ key, draft: event.target.value, editing: true })}
+        onBlur={() => setInput((current) => ({ ...current, editing: false }))}
       />
     </div>
   );
@@ -61,6 +76,8 @@ export function UsersPage() {
   const status = statuses.includes(params.get('status') ?? '')
     ? params.get('status')!
     : 'All statuses';
+  const administratorsOnly = params.get('administratorsOnly') === 'true';
+  const showResults = Boolean(query.trim()) || administratorsOnly || status !== 'All statuses';
   const sort = (
     ['name', 'status', 'joined'].includes(params.get('sort') ?? '') ? params.get('sort') : 'name'
   ) as UserSort;
@@ -73,7 +90,18 @@ export function UsersPage() {
       : new Set(query.trim().split(/\s+/u).filter(Boolean)).size > 8
         ? 'Use at most eight search terms.'
         : null;
-  const [revision, setRevision] = useState(0);
+  const [counts, setCounts] = useState<AdminUserCounts | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    request<AdminUserCounts>('/api/admin/user-counts', controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setCounts(data);
+      })
+      .catch(() => {
+        /* The session boundary handles authorization and service failures. */
+      });
+    return () => controller.abort();
+  }, [request]);
   const apiParams = new URLSearchParams({
     q: query.trim(),
     sort,
@@ -82,22 +110,22 @@ export function UsersPage() {
     pageSize: String(pageSize),
   });
   if (status !== 'All statuses') apiParams.set('status', status);
+  if (administratorsOnly) apiParams.set('administratorsOnly', 'true');
   const path = '/api/admin/users?' + apiParams;
-  const key = path + ':' + revision;
-  const [result, setResult] = useState<{ key: string; data: AdminUserPage } | null>(null);
-  const data = !error && result?.key === key ? result.data : null;
+  const [result, setResult] = useState<{ path: string; data: AdminUserPage } | null>(null);
+  const data = showResults && !error && result?.path === path ? result.data : null;
   useEffect(() => {
-    if (error) return;
+    if (!showResults || error) return;
     const controller = new AbortController();
     request<AdminUserPage>(path, controller.signal)
       .then((data) => {
-        if (!controller.signal.aborted) setResult({ key, data });
+        if (!controller.signal.aborted) setResult({ path, data });
       })
       .catch(() => {
         /* The session boundary handles authorization and service failures. */
       });
     return () => controller.abort();
-  }, [request, path, key, error]);
+  }, [request, path, error, showResults]);
 
   const update = useCallback(
     (changes: Record<string, string | null>, replace = false) => {
@@ -124,57 +152,77 @@ export function UsersPage() {
   const sizes = [...new Set([25, 50, 100, pageSize])].sort((a, b) => a - b).map(String);
   return (
     <>
-      <div className="page-heading">
-        <div>
-          <h1>Users</h1>
-          <p>Find people and review their account details.</p>
-        </div>
-        <div className="user-detail-actions">
-          <UserOperationButton
-            operation="create"
-            onSuccess={(id) => navigate('/users/' + encodeURIComponent(id))}
-          />
-          <Button
-            variant="outline"
-            disabled={!data}
-            onClick={() => setRevision((value) => value + 1)}
-          >
-            <RefreshCw size={15} />
-            Refresh
-          </Button>
-        </div>
+      <div className="page-heading user-directory-heading">
+        <h1>Users</h1>
+        <UserOperationButton
+          operation="create"
+          onSuccess={(id) => navigate('/users/' + encodeURIComponent(id))}
+        />
       </div>
+      <section className="stats-grid user-stats" aria-label="User statistics" aria-busy={!counts}>
+        <StatCard label="Total" value={counts?.totalUsers} icon={Users} />
+        <StatCard
+          label="Administrators"
+          value={counts?.administrators}
+          icon={ShieldCheck}
+          to="/users?administratorsOnly=true"
+          selected={administratorsOnly}
+        />
+        <StatCard
+          label="Unconfirmed"
+          value={counts?.unconfirmedUsers}
+          icon={MailCheck}
+          to="/users?status=Unconfirmed"
+          selected={status === 'Unconfirmed'}
+        />
+        <StatCard
+          label="Locked"
+          value={counts?.lockedUsers}
+          icon={LockKeyhole}
+          to="/users?status=Locked"
+          selected={status === 'Locked'}
+        />
+      </section>
       <section className="panel">
-        <div className="table-toolbar">
+        <div className="table-toolbar user-directory-toolbar">
           <SearchField query={query} onSearch={search} />
-          <Select
-            items={statuses.map((value) => ({ label: value, value }))}
-            value={status}
-            onValueChange={(value) =>
-              update({ status: value && value !== 'All statuses' ? value : null })
-            }
-          >
-            <SelectTrigger aria-label="Account status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {statuses.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {(showResults || error) && (
+            <div className="user-detail-actions">
+              <Select
+                items={statuses.map((value) => ({ label: value, value }))}
+                value={status}
+                onValueChange={(value) =>
+                  update({ status: value && value !== 'All statuses' ? value : null })
+                }
+              >
+                <SelectTrigger aria-label="Account status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Link className="clear-user-filters" to="/users">
+                Clear
+              </Link>
+            </div>
+          )}
         </div>
-        {error ? (
+        {error && (
           <p className="empty-state" role="alert">
             {error}
           </p>
-        ) : !data ? (
+        )}
+        {showResults && !error && !data && (
           <p className="empty-state" role="status">
             Loading users…
           </p>
-        ) : (
+        )}
+        {data && (
           <>
             <UserTable
               data={data.items}
@@ -215,7 +263,6 @@ export function UsersPage() {
                 </Select>
                 <Button
                   variant="outline"
-                  size="sm"
                   disabled={data.page <= 1}
                   onClick={() => update({ page: String(data.page - 1) })}
                 >
@@ -226,7 +273,6 @@ export function UsersPage() {
                 </span>
                 <Button
                   variant="outline"
-                  size="sm"
                   disabled={data.page >= pages || data.page >= 10000}
                   onClick={() => update({ page: String(data.page + 1) })}
                 >
@@ -270,7 +316,7 @@ export function UserDetail() {
     <>
       <Link className="back-link" to={'/users' + search}>
         <ArrowLeft size={15} />
-        All users
+        Back to users
       </Link>
       {notice && (
         <p role="status" className="operation-notice">
@@ -296,13 +342,7 @@ export function UserDetail() {
                 <p>{data.user.email || 'No email address'}</p>
               </div>
             </div>
-            <div className="user-detail-actions">
-              <StatusBadge status={data.user.status} />
-              <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>
-                <RefreshCw size={15} />
-                Refresh
-              </Button>
-            </div>
+            <StatusBadge status={data.user.status} />
           </div>
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList aria-label="User information">

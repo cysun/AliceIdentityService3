@@ -56,6 +56,26 @@ public sealed class AdminUserTests(ITestOutputHelper output)
     }
 
     [PostgresFact]
+    public async Task UserCountsMatchTheFilteredListsAndReturnOnlyCounts()
+    {
+        await using var client = await Directory();
+        var response = await client.Browser.GetAsync("/api/admin/user-counts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.CacheControl!.NoStore);
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var counts = json.Deserialize<AdminUserCounts>(JsonSerializerOptions.Web)!;
+        Assert.Equal(new AdminUserCounts(7, 2, 2, 1), counts);
+        Assert.Equal(["administrators", "lockedUsers", "totalUsers", "unconfirmedUsers"], Keys(json));
+        var admins = await Page(client, "?administratorsOnly=true");
+        Assert.Equal(counts.Administrators, admins.TotalCount);
+        Assert.All(admins.Items, user => Assert.True(user.Administrator));
+        Assert.Equal("person-a", Assert.Single((await Page(client, "?administratorsOnly=true&q=john")).Items).Id);
+        Assert.Empty((await Page(client, "?administratorsOnly=true&status=Locked")).Items);
+        Assert.Equal(counts.UnconfirmedUsers, (await Page(client, "?status=Unconfirmed")).TotalCount);
+        Assert.Equal(counts.LockedUsers, (await Page(client, "?status=Locked")).TotalCount);
+    }
+
+    [PostgresFact]
     public async Task SearchMatchesSubstringsAllNameFieldsEmailAndTermsInEitherOrder()
     {
         await using var client = await Directory();

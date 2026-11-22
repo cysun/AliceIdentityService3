@@ -11,13 +11,17 @@ export type AdminSession = {
   application: { name: string; version: string; implementationStep: number };
 };
 
+export type AdminUserCounts = {
+  totalUsers: number;
+  administrators: number;
+  unconfirmedUsers: number;
+  lockedUsers: number;
+};
+
 export type AdminOverview = {
-  counts: {
-    totalUsers: number;
+  counts: AdminUserCounts & {
     connectedApplications: number;
-    unconfirmedUsers: number;
-    administrators: number;
-    lockedUsers: number;
+    customScopes: number;
   };
   recentRegistrations: {
     id: string;

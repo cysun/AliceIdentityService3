@@ -37,6 +37,7 @@ export function UserClaims({
         </div>
         <AdminMutationDialog
           title="Add claim"
+          triggerVariant="default"
           description={'Assign a claim type and value. ' + effect}
           target={target}
           path={path}

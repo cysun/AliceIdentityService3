@@ -22,10 +22,11 @@ import {
 import { AdminMutationError, type AdminUserDetail } from '@/lib/admin-api';
 import { useAdminSession } from '@/lib/admin-context';
 
-type Operation = 'create' | 'edit' | 'password' | 'lock' | 'unlock' | 'delete';
+type Operation = 'create' | 'edit' | 'profile' | 'password' | 'lock' | 'unlock' | 'delete';
 const titles: Record<Operation, string> = {
   create: 'Create account',
   edit: 'Edit account',
+  profile: 'Edit profile',
   password: 'Reset password',
   lock: 'Lock account',
   unlock: 'Unlock account',
@@ -35,6 +36,7 @@ const messages: Record<Operation, string> = {
   create:
     'Create an ordinary, confirmed account after verifying its email address. No email is sent and no administrator claim is assigned.',
   edit: 'Update names and email confirmation. Changing confirmation ends this account’s AIS sessions and OIDC grants. The email address stays unchanged.',
+  profile: 'Update your name and the screen name shown in connected apps.',
   password:
     'Set a new password. This ends the account’s AIS sessions and OIDC grants. Lockout and two-factor settings stay in place. No email is sent.',
   lock: 'Prevent sign-in for the selected duration. Existing AIS sessions and OIDC grants will be invalidated.',
@@ -143,7 +145,8 @@ function OperationForm({
   const [confirmation, setConfirmation] = useState('');
   const identifier = data?.user.email?.trim() ? data.user.email : (data?.user.id ?? '');
   const deleting = operation === 'delete';
-  const names = operation === 'edit' || operation === 'create';
+  const editing = operation === 'edit' || operation === 'profile';
+  const names = editing || operation === 'create';
   const password = operation === 'password' || operation === 'create';
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,14 +161,14 @@ function OperationForm({
       for (const name of ['firstName', 'lastName', 'screenName'])
         input[name] = String(fields.get(name) ?? '').trim();
     if (operation === 'create') input.email = String(fields.get('email') ?? '').trim();
-    if (operation === 'edit') input.emailConfirmed = confirmed;
+    if (editing) input.emailConfirmed = confirmed;
     if (password) {
       input.password = fields.get('password');
       input.confirmPassword = fields.get('confirmPassword');
     }
     if (operation === 'lock') input.duration = duration;
     if (deleting) input.confirmation = confirmation;
-    const suffix = operation === 'edit' ? 'profile' : operation;
+    const suffix = editing ? 'profile' : operation;
     const path =
       operation === 'create'
         ? '/api/admin/users'
@@ -334,7 +337,7 @@ function OperationForm({
           variant={deleting ? 'destructive' : 'default'}
           disabled={pending || needsReload || (deleting && confirmation.trim() !== identifier)}
         >
-          {pending ? 'Saving…' : operation === 'edit' ? 'Save changes' : titles[operation]}
+          {pending ? 'Saving…' : editing ? 'Save changes' : titles[operation]}
         </Button>
       </DialogFooter>
     </form>

@@ -127,21 +127,37 @@ public sealed class AuthorizationController(SignInManager<User> signIn, IOpenIdd
     public async Task<IActionResult> EndSession()
     {
         var request = HttpContext.GetOpenIddictServerRequest()!;
-        if (!HttpMethods.IsPost(Request.Method) || Request.Form["confirm"] != "yes")
+        var userId = signIn.UserManager.GetUserId(User);
+        var signedOut = new AuthenticationProperties { RedirectUri = "/Account/Login" };
+        if (userId is null)
         {
-            var application = request.ClientId is not null ? await applications.FindByClientIdAsync(request.ClientId) : null;
-            IEnumerable<KeyValuePair<string, StringValues>> parameters = Request.HasFormContentType ? await Request.ReadFormAsync() : Request.Query;
-            return View("~/Views/Account/Account.cshtml", new AccountPageModel("OidcLogout",
-                application is null ? null : await applications.GetDisplayNameAsync(application))
-            {
-                LogoutParameters = parameters.Where(pair => pair.Key is not "confirm" and not "__RequestVerificationToken")
-                    .SelectMany(pair => pair.Value.Select(value => new KeyValuePair<string, string>(pair.Key, value ?? ""))).ToArray()
-            });
+            // Cross-site POSTs may omit the Lax AIS cookie. Repost from AIS so we can
+            // check the actual session without moving the ID token into the URL.
+            if (HttpMethods.IsPost(Request.Method) && Request.Form["resume"] != "yes")
+                return View("~/Views/Account/ResumeLogout.cshtml", request);
+            return SignOut(signedOut, Scheme);
         }
-        try { await antiforgery.ValidateRequestAsync(HttpContext); }
-        catch (AntiforgeryValidationException) { return BadRequest(); }
+
+        var hint = request.IdTokenHint is null ? null : (await HttpContext.AuthenticateAsync(Scheme)).Principal;
+        if (hint?.GetClaim(Claims.Subject) != userId)
+        {
+            if (!HttpMethods.IsPost(Request.Method) || Request.Form["confirm"] != "yes")
+                return await ConfirmEndSession(request);
+            try { await antiforgery.ValidateRequestAsync(HttpContext); }
+            catch (AntiforgeryValidationException) { return BadRequest(); }
+        }
         await signIn.SignOutAsync();
-        return SignOut(new AuthenticationProperties { RedirectUri = "/Account/Login" }, Scheme);
+        return SignOut(signedOut, Scheme);
+    }
+
+    private async Task<IActionResult> ConfirmEndSession(OpenIddictRequest request)
+    {
+        var application = request.ClientId is null ? null : await applications.FindByClientIdAsync(request.ClientId);
+        return View("~/Views/Account/Account.cshtml", new AccountPageModel("OidcLogout",
+            application is null ? null : await applications.GetDisplayNameAsync(application))
+        {
+            LogoutRequest = request
+        });
     }
 
     private ForbidResult ProtocolError(string error, string description) => Forbid(new AuthenticationProperties(new Dictionary<string, string?>

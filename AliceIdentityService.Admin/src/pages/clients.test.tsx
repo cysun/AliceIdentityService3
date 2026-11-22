@@ -143,6 +143,9 @@ describe('client management', () => {
     );
     await user.click(await screen.findByRole('link', { name: 'Campus <Portal>' }));
     expect(await screen.findByRole('heading', { name: 'Campus <Portal>' })).toBeVisible();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+      'Administration/Clients',
+    );
     expect(document.querySelector('main script')).toBeNull();
   });
 

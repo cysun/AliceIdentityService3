@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { SignOutForm } from '@/components/sign-out-form';
 import {
   AdminApiError,
   AdminMutationError,
@@ -147,9 +148,9 @@ export function AdminAccess({ children }: { children: ReactNode }) {
         {state.status === 'forbidden' && (
           <>
             <p>Your account does not currently have permission to use administration.</p>
-            <a href="/Account">Your account</a>
+            <a href="/Account/Profile">Your account</a>
             {' · '}
-            <a href="/Account/Logout">Sign out</a>
+            <SignOutForm />
           </>
         )}
         {state.status === 'unavailable' && (

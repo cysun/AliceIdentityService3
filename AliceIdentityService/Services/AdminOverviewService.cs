@@ -8,6 +8,15 @@ namespace AliceIdentityService.Services;
 
 public sealed class AdminOverviewService(AisDbContext database, TimeProvider clock)
 {
+    public async Task<AdminUserCounts> ReadUserCountsAsync(DateTimeOffset now, CancellationToken cancellationToken) =>
+        await database.Users.GroupBy(user => 1).Select(group => new AdminUserCounts(
+            group.LongCount(),
+            // Any ais_admin claim grants access. Duplicate claims still identify one account.
+            group.LongCount(user => database.UserClaims.Any(claim => claim.UserId == user.Id && claim.ClaimType == AisConstants.AdminClaim)),
+            group.LongCount(user => !user.EmailConfirmed),
+            group.LongCount(user => user.LockoutEnabled && user.LockoutEnd > now)
+        )).SingleOrDefaultAsync(cancellationToken) ?? new(0, 0, 0, 0);
+
     public async Task<AdminOverview> ReadAsync(CancellationToken cancellationToken)
     {
         var now = clock.GetUtcNow();
@@ -15,13 +24,10 @@ public sealed class AdminOverviewService(AisDbContext database, TimeProvider clo
         await using var transaction = await database.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         var users = database.Users.AsNoTracking();
         var clients = database.Set<OpenIddictEntityFrameworkCoreApplication>().AsNoTracking();
-        var total = await users.LongCountAsync(cancellationToken);
+        var userCounts = await ReadUserCountsAsync(now, cancellationToken);
         var applications = await clients.LongCountAsync(cancellationToken);
-        var unconfirmed = await users.LongCountAsync(user => !user.EmailConfirmed, cancellationToken);
-        // Count accounts, not claims: AIS2 permits duplicate claims and any ais_admin value grants access.
-        var administrators = await users.LongCountAsync(user => database.UserClaims.Any(claim =>
-            claim.UserId == user.Id && claim.ClaimType == AisConstants.AdminClaim), cancellationToken);
-        var locked = await users.LongCountAsync(user => user.LockoutEnabled && user.LockoutEnd > now, cancellationToken);
+        var customScopes = await database.Set<OpenIddictEntityFrameworkCoreScope>()
+            .LongCountAsync(scope => scope.Name == null || !AisConstants.StandardScopeNames.Contains(scope.Name), cancellationToken);
         var recent = await users.OrderByDescending(user => user.CreationTime).ThenBy(user => user.Id).Take(5)
             .Select(user => new RecentRegistration(user.Id,
                 user.ScreenName != "" ? user.ScreenName : user.FirstName + " " + user.LastName, user.Email,
@@ -33,6 +39,7 @@ public sealed class AdminOverviewService(AisDbContext database, TimeProvider clo
                 client.DisplayName != null && client.DisplayName != "" ? client.DisplayName : client.ClientId ?? "Unnamed application",
                 client.ClientId)).ToListAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new(new(total, applications, unconfirmed, administrators, locked), recent, connected, now);
+        return new(new(userCounts.TotalUsers, applications, userCounts.UnconfirmedUsers, userCounts.Administrators,
+            userCounts.LockedUsers, customScopes), recent, connected, now);
     }
 }

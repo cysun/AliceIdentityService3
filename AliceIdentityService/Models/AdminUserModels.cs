@@ -6,12 +6,14 @@ public sealed class AdminUserQuery
 {
     [StringLength(256)] public string? Q { get; set; }
     [RegularExpression("^(Confirmed|Unconfirmed|Locked)$")] public string? Status { get; set; }
+    public bool AdministratorsOnly { get; set; }
     [RegularExpression("^(name|status|joined)$")] public string Sort { get; set; } = "name";
     [RegularExpression("^(asc|desc)$")] public string Direction { get; set; } = "asc";
     [Range(1, 10000)] public int Page { get; set; } = 1;
     [Range(1, 100)] public int PageSize { get; set; } = 25;
 }
 
+public sealed record AdminUserCounts(long TotalUsers, long Administrators, long UnconfirmedUsers, long LockedUsers);
 public sealed record AdminUserSummary(string Id, string Name, string? Email, string Status,
     DateTime CreatedAt, bool Administrator);
 public sealed record AdminUserPage(IReadOnlyList<AdminUserSummary> Items, long TotalCount,

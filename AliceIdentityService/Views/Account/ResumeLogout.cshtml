@@ -1,0 +1,18 @@
+@model OpenIddict.Abstractions.OpenIddictRequest
+@{ Layout = null; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signing out · Alice Identity Service</title>
+    <script src="/js/account.js" asp-append-version="true" defer></script>
+</head>
+<body>
+    <form id="resume-logout" method="post" action="/connect/logout" asp-antiforgery="false">
+        <partial name="~/Views/Account/_LogoutFields.cshtml" model="Model" />
+        <input type="hidden" name="resume" value="yes" />
+        <noscript><button type="submit">Continue signing out</button></noscript>
+    </form>
+</body>
+</html>

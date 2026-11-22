@@ -191,7 +191,7 @@ public sealed class AdminClientService(AisDbContext database, AdminWriteGuard gu
             if (string.IsNullOrWhiteSpace(value) || value.Length > 200 || value.Any(c => c < '!' || c > '~' || c is '"' or '\\')) return "Enter valid scope names.";
             var name = value.Trim();
             if (!names.Add(name)) return "List each scope only once.";
-            if (AisConstants.StandardScopes.ContainsKey(name) || name == Scopes.OfflineAccess ||
+            if (AisConstants.StandardScopeNames.Contains(name) ||
                 previous.Permissions.Contains(Permissions.Prefixes.Scope + name) || await scopes.FindByNameAsync(name, cancellationToken) is not null) continue;
             return "A requested scope is not defined. Create it on the Scopes page first.";
         }

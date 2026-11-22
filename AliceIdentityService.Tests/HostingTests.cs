@@ -398,7 +398,7 @@ public sealed class HostingTests
         using (var browser = second.Browser())
         {
             browser.DefaultRequestHeaders.Add("Cookie", session);
-            Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/Account")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/Account/Profile")).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/api/admin/overview")).StatusCode);
             using var scope = second.Services.CreateScope();
             var users = scope.ServiceProvider.GetRequiredService<UserManager<User>>();

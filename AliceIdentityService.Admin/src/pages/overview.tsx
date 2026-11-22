@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
-import { Users, AppWindow, MailCheck, ShieldCheck, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Users, AppWindow, MailCheck, ShieldCheck } from 'lucide-react';
+import { StatCard } from '@/components/stat-card';
 import { StatusBadge } from '@/components/user-table';
-import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -18,12 +18,6 @@ import { initials } from '@/lib/person';
 export function Overview() {
   const { request } = useAdminSession();
   const [data, setData] = useState<AdminOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [revision, setRevision] = useState(0);
-  const refresh = useCallback(() => {
-    setLoading(true);
-    setRevision((value) => value + 1);
-  }, []);
   useEffect(() => {
     const controller = new AbortController();
     request<AdminOverview>('/api/admin/overview', controller.signal)
@@ -32,41 +26,12 @@ export function Overview() {
       })
       .catch(() => {
         /* The shared session boundary handles authorization and service failures. */
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [request, revision]);
+  }, [request]);
 
   if (!data) return <p role="status">Loading overview…</p>;
   const { counts } = data;
-  const stats = [
-    {
-      label: 'Total users',
-      value: counts.totalUsers,
-      note: 'Across your connected applications',
-      icon: Users,
-    },
-    {
-      label: 'Connected applications',
-      value: counts.connectedApplications,
-      note: 'Registered sign-in clients',
-      icon: AppWindow,
-    },
-    {
-      label: 'Unconfirmed accounts',
-      value: counts.unconfirmedUsers,
-      note: 'Awaiting email confirmation',
-      icon: MailCheck,
-    },
-    {
-      label: 'Administrators',
-      value: counts.administrators,
-      note: 'Accounts assigned administrator access',
-      icon: ShieldCheck,
-    },
-  ];
   return (
     <>
       <div className="page-heading">
@@ -74,27 +39,25 @@ export function Overview() {
           <h1>Overview</h1>
           <p>A clear view of your identity service.</p>
         </div>
-        <div className="overview-refresh">
-          <span>
-            Updated <time dateTime={data.asOf}>{new Date(data.asOf).toLocaleTimeString()}</time>
-          </span>
-          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-            <RefreshCw size={14} /> {loading ? 'Refreshing…' : 'Refresh'}
-          </Button>
-        </div>
+        <span className="overview-updated">
+          Updated <time dateTime={data.asOf}>{new Date(data.asOf).toLocaleTimeString()}</time>
+        </span>
       </div>
-      <div className="stats-grid" aria-busy={loading}>
-        {stats.map((stat) => (
-          <section className="stat-card" key={stat.label} aria-label={stat.label}>
-            <div>
-              <span>{stat.label}</span>
-              <stat.icon size={18} />
-            </div>
-            <strong>{stat.value.toLocaleString()}</strong>
-            <small>{stat.note}</small>
-          </section>
-        ))}
-      </div>
+      <nav className="stats-grid" aria-label="Overview statistics">
+        <StatCard label="Total users" value={counts.totalUsers} icon={Users} to="/users" />
+        <StatCard
+          label="Connected applications"
+          value={counts.connectedApplications}
+          icon={AppWindow}
+          to="/clients"
+        />
+        <StatCard
+          label="Custom scopes"
+          value={counts.customScopes}
+          icon={ShieldCheck}
+          to="/scopes"
+        />
+      </nav>
       <div className="overview-grid">
         <section className="panel">
           <div className="panel-heading">
@@ -178,38 +141,6 @@ export function Overview() {
           </Link>
         </section>
       </div>
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Connected applications</h2>
-            <p>
-              Showing {data.applications.length} of {counts.connectedApplications.toLocaleString()}{' '}
-              registered applications.
-            </p>
-          </div>
-        </div>
-        {data.applications.length === 0 ? (
-          <p className="empty-state">No applications are registered yet.</p>
-        ) : (
-          <div className="application-grid">
-            {data.applications.map((app) => (
-              <Link
-                className="application-card"
-                key={app.id}
-                to={'/clients/' + encodeURIComponent(app.id)}
-              >
-                <span className="avatar" aria-hidden="true">
-                  {initials(app.name)}
-                </span>
-                <div>
-                  <strong>{app.name}</strong>
-                  <small>{app.clientId}</small>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
     </>
   );
 }

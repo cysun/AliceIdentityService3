@@ -1,3 +1,5 @@
+document.getElementById('resume-logout')?.requestSubmit();
+
 document.querySelectorAll('.password-toggle').forEach((button) => {
   button.addEventListener('click', () => {
     const input = document.getElementById('password');

@@ -144,7 +144,7 @@ public sealed class AuthenticationTests
         Assert.Contains(Email, html);
         Assert.DoesNotContain("Open administration", html);
         Assert.True(home.Headers.CacheControl!.NoStore);
-        Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/Account/Logout")).StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await browser.GetAsync("/Account/Logout")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await browser.PostAsync("/Account/Logout", new FormUrlEncodedContent([]))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await browser.GetAsync("/Account")).StatusCode);
         var logout = await browser.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
@@ -160,6 +160,22 @@ public sealed class AuthenticationTests
         Assert.Single(lines, line => line.Contains($"{Email} ({user.Id}) logged in"));
         Assert.Single(lines, line => line.Contains($"{Email} ({user.Id}) logged out"));
         Assert.DoesNotContain(lines, line => line.Contains(Password) || line.Contains(wrongPassword));
+    }
+
+    [PostgresFact]
+    public async Task DirectAdminLoginOpensAdministrationAndTheProfileRemainsAccessible()
+    {
+        await using var database = await Database();
+        await CreateUser(database, admin: true);
+        using var factory = Factory(database);
+        using var browser = factory.Browser();
+        var login = await Login(browser);
+        Assert.Equal("/admin/", login.Headers.Location!.OriginalString);
+        Assert.Contains("id=\"root\"", await browser.GetStringAsync(login.Headers.Location));
+        Assert.Contains("My profile", await browser.GetStringAsync("/Account/Profile"));
+        var root = await browser.GetAsync("/");
+        var home = await browser.GetAsync(root.Headers.Location);
+        Assert.Equal("/admin/", home.Headers.Location!.OriginalString);
     }
 
     [PostgresFact]
@@ -254,7 +270,7 @@ public sealed class AuthenticationTests
         foreach (var path in new[] { "https://evil.example/", "//evil.example/", "/\\evil.example/", "javascript:alert(1)", "/admin/users?filter=active" })
         {
             using var browser = factory.Browser();
-            var expected = path.StartsWith("/admin/", StringComparison.Ordinal) ? path : "/Account";
+            var expected = path.StartsWith("/admin/", StringComparison.Ordinal) ? path : "/admin/";
             Assert.Equal(expected, (await Login(browser, returnUrl: path)).Headers.Location!.OriginalString);
             var existing = await browser.GetAsync("/Account/Login?returnUrl=" + Uri.EscapeDataString(path));
             Assert.Equal(expected, existing.Headers.Location!.OriginalString);

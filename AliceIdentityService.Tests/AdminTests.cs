@@ -15,7 +15,7 @@ namespace AliceIdentityService.Tests;
 [Collection("PostgreSQL")]
 public sealed class AdminTests
 {
-    private static readonly string[] Endpoints = ["/api/admin/session", "/api/admin/overview", "/api/admin/users", "/api/admin/users/missing", "/api/admin/antiforgery"];
+    private static readonly string[] Endpoints = ["/api/admin/session", "/api/admin/overview", "/api/admin/users", "/api/admin/users/missing", "/api/admin/antiforgery", "/api/admin/user-counts"];
 
     private static async Task<HttpResponseMessage> Login(HttpClient browser, string email = OidcTestClient.Email, bool remember = false)
     {
@@ -110,14 +110,15 @@ public sealed class AdminTests
         Assert.True((await client.Database.Services.GetRequiredService<UserManager<User>>().UpdateSecurityStampAsync(user)).Succeeded);
         foreach (var endpoint in Endpoints) Assert.Equal(HttpStatusCode.Unauthorized, (await client.Browser.GetAsync(endpoint)).StatusCode);
         await Login(client.Browser);
-        var logoutPage = await client.Browser.GetStringAsync("/Account/Logout");
+        var tokens = await client.Browser.GetFromJsonAsync<JsonElement>("/api/account/antiforgery");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.Browser.PostAsync("/Account/Logout", new FormUrlEncodedContent([]))).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.Browser.GetAsync(Endpoints[0])).StatusCode);
         var logout = await client.Browser.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = OidcTestClient.Field(logoutPage, "__RequestVerificationToken")
+            ["__RequestVerificationToken"] = tokens.GetProperty("requestToken").GetString()!
         }));
         Assert.Equal(HttpStatusCode.Redirect, logout.StatusCode);
+        Assert.Equal("/Account/Login", logout.Headers.Location!.OriginalString);
         foreach (var endpoint in Endpoints) Assert.Equal(HttpStatusCode.Unauthorized, (await client.Browser.GetAsync(endpoint)).StatusCode);
     }
 
@@ -163,6 +164,11 @@ public sealed class AdminTests
                 ClientSecret = "CLIENT-SECRET-MUST-NOT-LEAK",
                 Properties = "{\"private\":\"PRIVATE-PROPERTY-MUST-NOT-LEAK\"}"
             });
+        // The fixture has the bootstrapped standard scopes and the custom department scope.
+        // Imported offline_access is standard, and OAuth scope names are case-sensitive.
+        client.Database.Db.AddRange(
+            new OpenIddictEntityFrameworkCoreScope { Name = "offline_access" },
+            new OpenIddictEntityFrameworkCoreScope { Name = "Profile" });
         await client.Database.Db.SaveChangesAsync();
         await Login(client.Browser);
         var response = await client.Browser.GetAsync(Endpoints[1]);
@@ -170,7 +176,7 @@ public sealed class AdminTests
         Assert.True(response.Headers.CacheControl!.NoStore);
         Assert.False(response.Headers.Contains("Set-Cookie"));
         var result = (await response.Content.ReadFromJsonAsync<AdminOverview>())!;
-        Assert.Equal(new AdminCounts(8, 9, 2, 2, 2), result.Counts);
+        Assert.Equal(new AdminCounts(8, 9, 2, 2, 2, 2), result.Counts);
         Assert.Equal(["new-user-5", "new-user-6", "new-user-4", "new-user-3", "new-user-2"], result.RecentRegistrations.Select(u => u.Id).ToArray());
         Assert.Equal(["Confirmed", "Confirmed", "Locked", "Confirmed", "Confirmed"], result.RecentRegistrations.Select(u => u.Status).ToArray());
         Assert.Equal(6, result.Applications.Count);
@@ -192,7 +198,7 @@ public sealed class AdminTests
         await using var database = await PostgresTestDatabase.CreateAsync();
         await database.InitializeSchemaAsync();
         var result = await new AdminOverviewService(database.Db, TimeProvider.System).ReadAsync(default);
-        Assert.Equal(new AdminCounts(0, 0, 0, 0, 0), result.Counts);
+        Assert.Equal(new AdminCounts(0, 0, 0, 0, 0, 0), result.Counts);
         Assert.Empty(result.RecentRegistrations);
         Assert.Empty(result.Applications);
     }

@@ -130,7 +130,9 @@ describe('claim assignment', () => {
     await user.click(await screen.findByRole('tab', { name: 'Claims' }));
     expect(await screen.findByText('<script>test</script>')).toBeVisible();
     expect(document.querySelector('main script')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Add claim' }));
+    const addClaim = screen.getByRole('button', { name: 'Add claim' });
+    expect(addClaim).toHaveClass('bg-primary');
+    await user.click(addClaim);
     let dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Claim type'), 'role');
     await user.type(within(dialog).getByLabelText('Claim value'), 'faculty');
@@ -145,7 +147,9 @@ describe('claim assignment', () => {
     });
     expect(request!.headers).toMatchObject({ 'X-CSRF-TOKEN': 'fresh-csrf' });
     const row = screen.getByText('faculty').closest('tr')!;
-    await user.click(within(row).getByRole('button', { name: 'Remove claim' }));
+    const removeClaim = within(row).getByRole('button', { name: 'Remove claim' });
+    expect(removeClaim).toHaveClass('text-destructive');
+    await user.click(removeClaim);
     dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText(/Test User.*role = faculty/)).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Remove claim' }));
@@ -237,6 +241,9 @@ describe('scope definitions', () => {
     api({ standard: true });
     mount('/scopes/scope-id');
     expect(await screen.findByText(/Standard scope. Its name/)).toBeVisible();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+      'Administration/Scopes',
+    );
     expect(screen.queryByRole('button', { name: 'Edit scope' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete scope' })).not.toBeInTheDocument();
   });

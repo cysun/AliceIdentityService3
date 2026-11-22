@@ -61,6 +61,7 @@ a:focus-visible {
 .brand-mark {
   display: grid;
   place-items: center;
+  flex: none;
   width: 36px;
   height: 38px;
   background: var(--ais-primary);
@@ -275,6 +276,8 @@ input::placeholder {
   padding: 32px 22px;
 }
 .oidc .account-header {
+  width: 100%;
+  max-width: 430px;
   padding: 18px 0 28px;
 }
 .oidc .account-main {
@@ -345,6 +348,7 @@ input::placeholder {
 @media (max-width: 650px) {
   .account-header {
     padding: 22px;
+    gap: 12px;
   }
   .tagline,
   .account-intro {

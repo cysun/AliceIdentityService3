@@ -28,4 +28,8 @@ public sealed class AdminController(UserManager<User> users, AdminOverviewServic
 
     [HttpGet("overview")]
     public Task<AdminOverview> Overview(CancellationToken cancellationToken) => overview.ReadAsync(cancellationToken);
+
+    [HttpGet("user-counts")]
+    public Task<AdminUserCounts> UserCounts(CancellationToken cancellationToken) =>
+        overview.ReadUserCountsAsync(clock.GetUtcNow(), cancellationToken);
 }

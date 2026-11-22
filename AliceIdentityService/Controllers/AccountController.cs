@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using AliceIdentityService.Services;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace AliceIdentityService.Controllers;
@@ -24,7 +25,7 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
                 Login = new() { OidcContext = context }
             });
         }
-        if (User.Identity?.IsAuthenticated == true) return LocalRedirect(SafeReturnUrl(returnUrl));
+        if (User.Identity?.IsAuthenticated == true) return LocalRedirect(LoginReturnUrl(returnUrl));
         return View("Account", new AccountPageModel("Login") { Login = new() { ReturnUrl = SafeReturnUrl(returnUrl) } });
     }
 
@@ -52,7 +53,7 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
                 {
                     logger.LogInformation("Account {Email} ({UserId}) logged in to {ClientId} (remember me {RememberMe})",
                         OperationLog.Text(user.Email), user.Id, clientId, input.RememberMe);
-                    return LocalRedirect(validated is null ? input.ReturnUrl : OidcLoginContext.AfterPasswordSignIn(validated.Request));
+                    return LocalRedirect(validated is null ? LoginReturnUrl(input.ReturnUrl) : OidcLoginContext.AfterPasswordSignIn(validated.Request));
                 }
                 LogNewLockout(user, previousLockout, result);
             }
@@ -66,7 +67,11 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
         return View("Account", new AccountPageModel("Login", validated?.ApplicationName, input.OidcContext) { Login = input });
     }
 
-    [Authorize, HttpGet(""), HttpGet("Profile")]
+    [Authorize, HttpGet("")]
+    public async Task<IActionResult> Index() => IsAdministrator
+        ? LocalRedirect("/admin/") : await Home();
+
+    [Authorize, HttpGet("Profile")]
     public async Task<IActionResult> Home(bool saved = false)
     {
         var user = await signIn.UserManager.GetUserAsync(User);
@@ -138,12 +143,9 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
         return View("Account", new AccountPageModel("ChangePassword") { ChangePassword = input });
     }
 
-    // GET only displays a confirmation. Signing out always requires an antiforgery-protected POST.
-    [Authorize, HttpGet("Logout")]
-    public IActionResult Logout(string? returnUrl) => View("Account", new AccountPageModel("Logout")
-    {
-        ReturnUrl = SafeReturnUrl(returnUrl, "/Account/Login")
-    });
+    [Authorize, HttpGet("~/api/account/antiforgery")]
+    public IActionResult Antiforgery([FromServices] IAntiforgery antiforgery) =>
+        Ok(new { RequestToken = antiforgery.GetAndStoreTokens(HttpContext).RequestToken });
 
     [Authorize, HttpPost("Logout")]
     public async Task<IActionResult> SignOutAccount(string? returnUrl)
@@ -161,6 +163,14 @@ public sealed class AccountController(SignInManager<User> signIn, OidcLoginConte
 
     private string SafeReturnUrl(string? returnUrl, string fallback = "/Account") =>
         Url.IsLocalUrl(returnUrl) ? returnUrl! : fallback;
+
+    private bool IsAdministrator => User.HasClaim(claim => claim.Type == AisConstants.AdminClaim);
+
+    private string LoginReturnUrl(string? returnUrl)
+    {
+        var path = SafeReturnUrl(returnUrl);
+        return IsAdministrator && path.Equals("/Account", StringComparison.OrdinalIgnoreCase) ? "/admin/" : path;
+    }
 
     private void LogNewLockout(User user, DateTimeOffset? previousLockout, Microsoft.AspNetCore.Identity.SignInResult result)
     {

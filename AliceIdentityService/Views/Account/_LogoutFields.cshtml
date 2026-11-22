@@ -1,0 +1,8 @@
+@model OpenIddict.Abstractions.OpenIddictRequest
+@foreach (var name in new[] { "client_id", "id_token_hint", "post_logout_redirect_uri", "state", "logout_hint", "ui_locales" })
+{
+    if ((string?)Model.GetParameter(name) is { } value)
+    {
+        <input type="hidden" name="@name" value="@value" />
+    }
+}

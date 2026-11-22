@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { AdminMutationDialog } from '@/components/admin-mutation-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -210,6 +210,7 @@ function ClientEditor({
   return (
     <AdminMutationDialog
       title={data ? 'Edit client' : 'Register client'}
+      triggerVariant={data ? 'outline' : 'default'}
       submitLabel={data ? 'Save changes' : undefined}
       description={
         data
@@ -283,10 +284,6 @@ export function ClientsPage() {
             <h2>Registered applications</h2>
             <p>Manage sign-in settings and the information each application may request.</p>
           </div>
-          <Button variant="outline" onClick={reload}>
-            <RefreshCw size={15} />
-            Refresh
-          </Button>
         </div>
         <form className="table-toolbar" onSubmit={submit}>
           <Input

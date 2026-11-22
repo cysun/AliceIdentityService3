@@ -9,7 +9,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>@Model.Heading · Alice Identity Service</title>
-    <link rel="icon" href="/brand/fingerprint.svg" type="image/svg+xml" />
+    <link rel="icon" href="/brand/fingerprint.svg?v=2" type="image/svg+xml" />
+    <script src="/js/theme.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="/css/tokens.css" asp-append-version="true" />
     <link rel="stylesheet" href="/css/account.css" asp-append-version="true" />
     <script src="/js/account.js" defer asp-append-version="true"></script>
@@ -18,7 +19,10 @@
     <div class="account-shell @(Model.IsOidc ? "oidc" : "direct")">
         <header class="account-header">
             <a class="brand" href="/Account/Login"><span class="brand-mark"><img src="/brand/fingerprint.svg" alt="" width="24" height="24" /></span>Alice Identity Service</a>
-            @if (!Model.IsOidc) { <span class="muted tagline">Your account. Your applications.</span> }
+            <div class="header-actions">
+                @if (!Model.IsOidc) { <span class="muted tagline">Your account. Your applications.</span> }
+                <ais-theme-picker></ais-theme-picker>
+            </div>
         </header>
         <main class="account-main">
             @if (!Model.IsOidc)
@@ -56,7 +60,6 @@
                             "ResetPassword" => "Create a new password for your AIS account.",
                             "ChangePassword" => "Enter your current password and choose a new one. You will need to sign in again.",
                             "Home" => "Manage how your name appears in connected apps.",
-                            "Logout" => "This will sign you out of AIS on this browser.",
                             "OidcLogout" => "Sign out of AIS on this browser?",
                             "InvalidRequest" => "This sign-in request is invalid or expired. Return to your application and start again.",
                             "AccessDenied" => "Administrator access is required to open this page.",
@@ -120,22 +123,11 @@
                         <form asp-action="SignOutAccount" method="post" class="fields"><button class="primary-button" type="submit">Sign out</button></form>
                     </div>
                 }
-                else if (Model.Page == "Logout")
-                {
-                    <form asp-action="SignOutAccount" method="post" class="fields">
-                        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
-                        <button class="primary-button" type="submit">Sign out</button>
-                        <a asp-action="Home">Stay signed in</a>
-                    </form>
-                }
                 else if (Model.Page == "OidcLogout")
                 {
                     <form action="/connect/logout" method="post" class="fields">
                         @Html.AntiForgeryToken()
-                        @foreach (var parameter in Model.LogoutParameters)
-                        {
-                            <input type="hidden" name="@parameter.Key" value="@parameter.Value" />
-                        }
+                        <partial name="~/Views/Account/_LogoutFields.cshtml" model="Model.LogoutRequest" />
                         <button class="primary-button" type="submit" name="confirm" value="yes">Sign out</button>
                         <a href="/Account">Cancel</a>
                     </form>
@@ -147,7 +139,10 @@
                 else if (Model.Page == "AccessDenied")
                 {
                     <div class="fields"><a asp-action="Home">Back to your account</a>
-                    @if (User.Identity?.IsAuthenticated == true) { <a asp-action="Logout">Sign out to use another account</a> }
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <form asp-action="SignOutAccount" method="post"><button class="primary-button" type="submit">Sign out to use another account</button></form>
+                    }
                     </div>
                 }
                 else if (Model.Page == "ForgotPassword")

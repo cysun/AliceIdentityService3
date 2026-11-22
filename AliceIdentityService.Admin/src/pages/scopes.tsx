@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { AdminMutationDialog } from '@/components/admin-mutation-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ function ScopeEditor({
   return (
     <AdminMutationDialog
       title={data ? 'Edit scope' : 'Create scope'}
+      triggerVariant={data ? 'outline' : 'default'}
       submitLabel={data ? 'Save changes' : undefined}
       description="Define the claims applications may request and the API resources that receive them. Changes apply to newly issued tokens and userinfo responses; issued JWTs retain their original claims until expiry."
       path={'/api/admin/scopes' + (data ? '/' + encodeURIComponent(data.id) : '')}
@@ -156,10 +157,6 @@ export function ScopesPage() {
             <h2>Available scopes</h2>
             <p>Standard scopes preserve the existing identity contract.</p>
           </div>
-          <Button variant="outline" onClick={reload}>
-            <RefreshCw size={15} />
-            Refresh
-          </Button>
         </div>
         <form className="table-toolbar" onSubmit={submit}>
           <Input

@@ -16,6 +16,7 @@ import { useAdminSession } from '@/lib/admin-context';
 
 type Props = {
   title: string;
+  triggerVariant?: 'default' | 'outline';
   submitLabel?: string;
   description: string;
   target?: string;
@@ -29,7 +30,7 @@ type Props = {
   onReload: () => void;
 };
 
-export function AdminMutationDialog(props: Props) {
+export function AdminMutationDialog({ triggerVariant = 'outline', ...props }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
@@ -42,7 +43,7 @@ export function AdminMutationDialog(props: Props) {
       <DialogTrigger
         render={
           <Button
-            variant={props.method === 'DELETE' ? 'destructive' : 'outline'}
+            variant={props.method === 'DELETE' ? 'destructive' : triggerVariant}
             disabled={props.disabled}
           />
         }

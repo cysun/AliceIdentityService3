@@ -454,11 +454,61 @@ public sealed class OidcTests
     }
 
     [PostgresFact]
-    public async Task LogoutValidatesRedirectAndRequiresAntiforgeryConfirmation()
+    public async Task ClientLogoutWithAMatchingHintClearsTheCookieAndReturnsStateWithoutAPrompt()
     {
         using var log = new TestLogFile();
         await using var client = await OidcTestClient.Create(log: log);
+        foreach (var method in new[] { HttpMethod.Get, HttpMethod.Post })
+        {
+            var tokens = await client.Tokens();
+            var parameters = new Dictionary<string, string?>
+            {
+                ["id_token_hint"] = tokens.GetProperty("id_token").GetString(),
+                ["post_logout_redirect_uri"] = OidcTestClient.SignedOut,
+                ["state"] = "logout-state"
+            };
+            if (method == HttpMethod.Get) parameters["client_id"] = OidcTestClient.ClientId;
+            var invalid = new Dictionary<string, string?>(parameters) { ["post_logout_redirect_uri"] = "https://unregistered.example/" };
+            var rejected = await client.Browser.GetAsync(QueryHelpers.AddQueryString("/connect/logout", invalid));
+            Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+            Assert.Null(rejected.Headers.Location);
+            Assert.Equal(HttpStatusCode.OK, (await client.Browser.GetAsync("/Account/Profile")).StatusCode);
+
+            HttpResponseMessage response;
+            if (method == HttpMethod.Get)
+                response = await client.Browser.GetAsync(QueryHelpers.AddQueryString("/connect/logout", parameters));
+            else
+            {
+                // The initial cross-site POST omits the Lax cookie. AIS submits the form again from its own origin.
+                using var withoutCookie = client.Factory.Browser();
+                var start = await withoutCookie.PostAsync("/connect/logout", new FormUrlEncodedContent(parameters));
+                var html = await start.Content.ReadAsStringAsync();
+                Assert.Contains("id=\"resume-logout\"", html);
+                Assert.DoesNotContain("Sign out?", html);
+                var form = parameters.Keys.Append("resume").ToDictionary(key => key, key => OidcTestClient.Field(html, key));
+                response = await client.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(form));
+            }
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            Assert.Equal(OidcTestClient.SignedOut + "?state=logout-state", response.Headers.Location!.OriginalString);
+            Assert.Contains("expires=Thu, 01 Jan 1970", AuthenticationFactory.SessionCookie(response));
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.Browser.GetAsync("/api/admin/session")).StatusCode);
+        }
+        Assert.Contains(log.Lines(), line => line.Contains("logged out") && line.Contains(OidcTestClient.Email) && line.Contains(OidcTestClient.ClientId));
+    }
+
+    [PostgresFact]
+    public async Task MissingOrOtherAccountLogoutHintRequiresTheCurrentUsersConfirmation()
+    {
+        await using var client = await OidcTestClient.Create();
         var tokens = await client.Tokens();
+        const string email = "another@example.test";
+        var users = client.Database.Services.GetRequiredService<UserManager<User>>();
+        var other = new User { Email = email, UserName = email, EmailConfirmed = true, FirstName = "Another", LastName = "User", ScreenName = "Another User" };
+        Assert.True((await users.CreateAsync(other, OidcTestClient.Password)).Succeeded);
+        var select = client.Parameters();
+        select["prompt"] = "select_account";
+        var login = await client.Authorize(select);
+        Assert.Equal(HttpStatusCode.Redirect, (await client.SubmitLogin(await login.Content.ReadAsStringAsync(), email: email)).StatusCode);
         var parameters = new Dictionary<string, string?>
         {
             ["id_token_hint"] = tokens.GetProperty("id_token").GetString(),
@@ -466,24 +516,23 @@ public sealed class OidcTests
             ["post_logout_redirect_uri"] = OidcTestClient.SignedOut,
             ["state"] = "logout-state"
         };
-        var invalid = new Dictionary<string, string?>(parameters) { ["post_logout_redirect_uri"] = "https://evil.example/" };
-        var response = await client.Browser.GetAsync(QueryHelpers.AddQueryString("/connect/logout", invalid));
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Null(response.Headers.Location);
-        response = await client.Browser.GetAsync(QueryHelpers.AddQueryString("/connect/logout", parameters));
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Sign out?", html);
-        Assert.Equal(HttpStatusCode.OK, (await client.Browser.GetAsync("/Account")).StatusCode);
-        parameters["confirm"] = "yes";
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(parameters))).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.Browser.GetAsync("/Account")).StatusCode);
-        parameters["__RequestVerificationToken"] = OidcTestClient.Field(html, "__RequestVerificationToken");
-        response = await client.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(parameters));
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal(OidcTestClient.SignedOut + "?state=logout-state", response.Headers.Location!.OriginalString);
-        Assert.Equal(HttpStatusCode.Redirect, (await client.Browser.GetAsync("/Account")).StatusCode);
-        Assert.Single(log.Lines(), line => line.Contains("logged out") && line.Contains(OidcTestClient.Email) && line.Contains(OidcTestClient.ClientId));
+        foreach (var withHint in new[] { true, false })
+        {
+            if (!withHint) parameters.Remove("id_token_hint");
+            var page = await client.Browser.GetAsync(QueryHelpers.AddQueryString("/connect/logout", parameters));
+            Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+            var html = await page.Content.ReadAsStringAsync();
+            Assert.Contains("Sign out?", html);
+            Assert.Contains(email, await client.Browser.GetStringAsync("/Account/Profile"));
+            var form = parameters.Keys.ToDictionary(key => key, key => OidcTestClient.Field(html, key));
+            form["confirm"] = "yes";
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(form))).StatusCode);
+            if (withHint) continue;
+            form["__RequestVerificationToken"] = OidcTestClient.Field(html, "__RequestVerificationToken");
+            var response = await client.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(form));
+            Assert.Equal(OidcTestClient.SignedOut + "?state=logout-state", response.Headers.Location!.OriginalString);
+            Assert.Equal(HttpStatusCode.Redirect, (await client.Browser.GetAsync("/Account/Profile")).StatusCode);
+        }
     }
 
     [PostgresFact]

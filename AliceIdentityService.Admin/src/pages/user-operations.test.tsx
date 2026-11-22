@@ -65,6 +65,8 @@ function api(
       });
     if (url.pathname === '/api/admin/antiforgery')
       return json({ requestToken: 'fresh-csrf', userId: options.tokenUser ?? 'admin' });
+    if (url.pathname === '/api/admin/user-counts')
+      return json({ totalUsers: 2, administrators: 1, unconfirmedUsers: 0, lockedUsers: 0 });
     if (init?.method === 'POST' || init?.method === 'DELETE') {
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
       if (options.write) return options.write(path, body);
@@ -127,6 +129,40 @@ afterEach(() => {
 });
 
 describe('administrative account operations', () => {
+  it('opens Profile below Scopes and edits the signed-in administrator’s names', async () => {
+    const server = api({ self: true });
+    const user = userEvent.setup();
+    mount('/users/admin');
+    await screen.findByRole('heading', { name: 'Test Person' });
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+      'Administration/Users',
+    );
+    const profile = screen.getByRole('link', { name: 'Profile' });
+    await user.click(profile);
+    await screen.findByRole('heading', { name: 'Profile' });
+    expect(profile).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
+      'Administration/Profile',
+    );
+    expect(await screen.findByRole('link', { name: 'Change password' })).toHaveAttribute(
+      'href',
+      '/Account/ChangePassword',
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit profile' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.queryByLabelText('Email confirmed')).toBeNull();
+    fill('First name', 'Updated');
+    await user.click(dialog.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Profile updated.')).toBeVisible();
+    expect(await screen.findByText('Updated')).toBeVisible();
+    expect(server.writes()[0][0]).toBe('/api/admin/users/admin/profile');
+    expect(JSON.parse(server.writes()[0][1]!.body as string)).toMatchObject({
+      firstName: 'Updated',
+      emailConfirmed: true,
+      version: original.version,
+    });
+  });
+
   it('cancels without saving and submits only editable profile fields with a fresh CSRF token', async () => {
     const server = api();
     mount();

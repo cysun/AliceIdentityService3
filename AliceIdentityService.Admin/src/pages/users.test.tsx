@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
@@ -71,6 +71,10 @@ function api(
           },
         }),
       );
+    if (url.pathname === '/api/admin/user-counts')
+      return Promise.resolve(
+        json({ totalUsers: 84, administrators: 2, unconfirmedUsers: 4, lockedUsers: 1 }),
+      );
     if (url.pathname === '/api/admin/users') return users(url);
     if (url.pathname.startsWith('/api/admin/users/')) return user();
     throw new Error('Unexpected API path: ' + path);
@@ -90,7 +94,7 @@ function History() {
   );
 }
 function mount(path = '/users') {
-  render(
+  return render(
     <MemoryRouter initialEntries={[path]}>
       <History />
       <AdminAccess>
@@ -119,6 +123,51 @@ afterEach(() => {
 });
 
 describe('live user directory', () => {
+  it('loads just the four counts on arrival, with a non-interactive Total', async () => {
+    const fetch = api();
+    mount();
+    const stats = within(await screen.findByRole('region', { name: 'User statistics' }));
+    expect(await stats.findByText('84')).toBeVisible();
+    expect(stats.getByText('Total').closest('a, button, [tabindex]')).toBeNull();
+    expect(stats.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/users?administratorsOnly=true',
+      '/users?status=Unconfirmed',
+      '/users?status=Locked',
+    ]);
+    expect(screen.getByRole('textbox', { name: 'Search users' })).toBeVisible();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Account status' })).toBeNull();
+    expect(calls(fetch)).toHaveLength(0);
+  });
+
+  it.each([
+    ['Administrators 2', 'administratorsOnly', 'true'],
+    ['Unconfirmed 4', 'status', 'Unconfirmed'],
+    ['Locked 1', 'status', 'Locked'],
+  ])('opens %s, searches within the group and clears the list', async (card, field, value) => {
+    const fetch = api();
+    const user = userEvent.setup();
+    mount('/users?q=initial&page=2');
+    await screen.findByRole('table', { name: 'Users' });
+    const input = screen.getByRole('textbox', { name: 'Search users' });
+    await user.type(input, ' draft');
+    await user.click(await screen.findByRole('link', { name: card }));
+    await screen.findByRole('table', { name: 'Users' });
+    expect(screen.getByRole('link', { name: card })).toHaveAttribute('aria-current', 'true');
+    expect(calls(fetch).at(-1)!.searchParams.get(field)).toBe(value);
+    expect(calls(fetch).at(-1)!.searchParams.get('q')).toBe('');
+    expect(calls(fetch).at(-1)!.searchParams.get('page')).toBe('1');
+    expect(input).toHaveValue('');
+    await user.type(input, 'person');
+    await waitFor(() => expect(calls(fetch).at(-1)!.searchParams.get('q')).toBe('person'));
+    expect(calls(fetch).at(-1)!.searchParams.get(field)).toBe(value);
+    const requests = calls(fetch).length;
+    await user.click(screen.getByRole('link', { name: 'Clear' }));
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(calls(fetch)).toHaveLength(requests);
+  });
+
   it('loads bookmarked query/filter/sort/page state from the API with no sample records', async () => {
     const fetch = api(async () => json({ ...directory, page: 2, totalCount: 75 }));
     mount('/users?q=smith+john&status=Unconfirmed&sort=joined&direction=desc&page=2');
@@ -145,17 +194,20 @@ describe('live user directory', () => {
   it('debounces typing, preserves focus and sends literal search input without client-side filtering', async () => {
     const fetch = api();
     mount();
-    await screen.findByRole('table', { name: 'Users' });
-    const input = screen.getByRole('textbox', { name: 'Search users' });
-    await userEvent.setup().type(input, '%_\\Smith John');
-    expect(calls(fetch)).toHaveLength(1);
-    await waitFor(() => expect(calls(fetch)).toHaveLength(2));
-    expect(calls(fetch)[1].searchParams.get('q')).toBe('%_\\Smith John');
+    const input = await screen.findByRole('textbox', { name: 'Search users' });
+    await userEvent.setup().type(input, '%_\\Smith ');
+    expect(calls(fetch)).toHaveLength(0);
+    await waitFor(() => expect(calls(fetch)).toHaveLength(1));
+    expect(calls(fetch)[0].searchParams.get('q')).toBe('%_\\Smith');
+    expect(input).toHaveValue('%_\\Smith ');
     expect(input).toHaveFocus();
     expect(await screen.findByRole('link', { name: /Actual <person>/ })).toBeInTheDocument();
-    await userEvent.setup().type(input, 'x');
-    await waitFor(() => expect(calls(fetch)).toHaveLength(3));
-    expect(calls(fetch)[2].searchParams.get('q')).toBe('%_\\Smith Johnx');
+    await userEvent.setup().type(input, 'John');
+    await waitFor(() => expect(calls(fetch)).toHaveLength(2));
+    expect(calls(fetch)[1].searchParams.get('q')).toBe('%_\\Smith John');
+    await userEvent.setup().clear(input);
+    await waitFor(() => expect(screen.queryByRole('table')).toBeNull());
+    expect(calls(fetch)).toHaveLength(2);
   });
 
   it('ignores an old response arriving after a newer search and hides previous-query rows while loading', async () => {
@@ -164,14 +216,13 @@ describe('live user directory', () => {
       url.searchParams.get('q') === 'old' ? pending.promise : Promise.resolve(json(directory)),
     );
     mount();
-    await screen.findByRole('table', { name: 'Users' });
-    const input = screen.getByRole('textbox', { name: 'Search users' });
+    const input = await screen.findByRole('textbox', { name: 'Search users' });
     fireEvent.change(input, { target: { value: 'old' } });
-    await waitFor(() => expect(calls(fetch)).toHaveLength(2));
+    await waitFor(() => expect(calls(fetch)).toHaveLength(1));
     expect(screen.getByText('Loading users…')).toBeInTheDocument();
     expect(screen.queryByText(person.name)).not.toBeInTheDocument();
     fireEvent.change(input, { target: { value: 'new' } });
-    await waitFor(() => expect(calls(fetch)).toHaveLength(3));
+    await waitFor(() => expect(calls(fetch)).toHaveLength(2));
     await screen.findByRole('table', { name: 'Users' });
     await act(async () =>
       pending.resolve(json({ ...directory, items: [{ ...person, name: 'Stale person' }] })),
@@ -214,16 +265,18 @@ describe('live user directory', () => {
     expect(calls(fetch).at(-1)!.searchParams.get('pageSize')).toBe('50');
   });
 
-  it('shows empty results and refreshes the current query', async () => {
+  it('loads current results for the same search and filters on a new page load', async () => {
     let empty = true;
     const fetch = api(async () =>
       json(empty ? { ...directory, items: [], totalCount: 0 } : directory),
     );
-    mount('/users?q=example&status=Confirmed');
+    const url = '/users?q=example&status=Confirmed';
+    const view = mount(url);
     await screen.findByText('No users match your filters.');
     expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
     empty = false;
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh' }));
+    view.unmount();
+    mount(url);
     await screen.findByText(person.name);
     expect(calls(fetch)[0].search).toBe(calls(fetch)[1].search);
   });
@@ -242,10 +295,10 @@ describe('live user directory', () => {
 
   it('normalizes invalid URL controls before requesting data', async () => {
     const fetch = api();
-    mount('/users?page=-1&pageSize=1000&sort=PasswordHash&direction=bad&status=bad');
+    mount('/users?q=smith&page=-1&pageSize=1000&sort=PasswordHash&direction=bad&status=bad');
     await screen.findByText(person.name);
     expect(Object.fromEntries(calls(fetch)[0].searchParams)).toEqual({
-      q: '',
+      q: 'smith',
       sort: 'name',
       direction: 'asc',
       page: '1',
@@ -259,8 +312,9 @@ describe('live user directory', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('link', { name: /Actual <person>/ }));
     await screen.findByRole('heading', { name: person.name });
+    expect(screen.queryByRole('button', { name: /refresh/i })).toBeNull();
     expect(screen.getByText('actual-person')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'All users' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Back to users' })).toHaveAttribute(
       'href',
       '/users?q=actual&status=Confirmed',
     );
@@ -273,7 +327,7 @@ describe('live user directory', () => {
     expect(
       screen.queryByRole('button', { name: /add claim|assign claim/i }),
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'All users' }));
+    await user.click(screen.getByRole('link', { name: 'Back to users' }));
     await screen.findByRole('table', { name: 'Users' });
     expect(screen.getByRole('textbox', { name: 'Search users' })).toHaveValue('actual');
   });
@@ -283,7 +337,7 @@ describe('live user directory', () => {
     mount('/users/missing?q=smith');
     await screen.findByRole('heading', { name: 'User not found' });
     expect(screen.getByRole('navigation', { name: 'Administration' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'All users' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Back to users' })).toHaveAttribute(
       'href',
       '/users?q=smith',
     );
@@ -311,10 +365,10 @@ describe('live user directory', () => {
     async (status) => {
       let denied = false;
       api(async () => (denied ? json({}, status) : json(directory)));
-      mount();
+      mount('/users?q=person');
       await screen.findByText(person.name);
       denied = true;
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh' }));
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Joined' }));
       expect(await screen.findByRole('alert')).toHaveTextContent(
         status === 401 ? 'Please sign in again' : 'Administrator access required',
       );
@@ -328,7 +382,7 @@ describe('live user directory', () => {
       if (broken) throw new TypeError('Offline');
       return json(directory);
     });
-    mount();
+    mount('/users?q=person');
     await screen.findByRole('heading', { name: 'Administration is temporarily unavailable' });
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     broken = false;

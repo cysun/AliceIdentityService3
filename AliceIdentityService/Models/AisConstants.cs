@@ -14,4 +14,7 @@ public static class AisConstants
             "picture", "website", "gender", "birthdate", "zoneinfo", "locale", "updated_at"],
         ["phone"] = ["phone_number", "phone_number_verified"]
     };
+
+    internal static IReadOnlyList<string> StandardScopeNames { get; } =
+        [.. StandardScopes.Keys, OpenIddict.Abstractions.OpenIddictConstants.Scopes.OfflineAccess];
 }

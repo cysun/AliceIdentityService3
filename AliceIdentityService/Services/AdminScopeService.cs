@@ -14,7 +14,7 @@ public sealed class AdminScopeService(AisDbContext database, AdminWriteGuard gua
     IOpenIddictApplicationManager applications, IOpenIddictAuthorizationManager authorizations, ILogger<AdminScopeService> logger)
 {
     private IQueryable<OpenIddictEntityFrameworkCoreScope> Records => database.Set<OpenIddictEntityFrameworkCoreScope>();
-    public static bool Standard(string? name) => name is not null && (AisConstants.StandardScopes.ContainsKey(name) || name == Scopes.OfflineAccess);
+    public static bool Standard(string? name) => name is not null && AisConstants.StandardScopeNames.Contains(name);
 
     public async Task<AdminScopePage> SearchAsync(AdminScopeQuery input, CancellationToken cancellationToken)
     {

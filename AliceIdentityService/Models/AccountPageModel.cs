@@ -1,3 +1,5 @@
+using OpenIddict.Abstractions;
+
 namespace AliceIdentityService.Models;
 
 public sealed record AccountPageModel(string Page, string? ApplicationName = null, string? OidcContext = null)
@@ -11,8 +13,7 @@ public sealed record AccountPageModel(string Page, string? ApplicationName = nul
     public ProfileInputModel Profile { get; init; } = new();
     public bool ProfileSaved { get; init; }
     public bool ContinuationExpired { get; init; }
-    public string? ReturnUrl { get; init; }
-    public IReadOnlyList<KeyValuePair<string, string>> LogoutParameters { get; init; } = [];
+    public OpenIddictRequest? LogoutRequest { get; init; }
     public bool IsOidc => ApplicationName is not null;
     public string Heading => Page switch
     {
@@ -31,7 +32,7 @@ public sealed record AccountPageModel(string Page, string? ApplicationName = nul
         "ChangePassword" => "Change your password",
         "PasswordChanged" => "Password changed",
         "Home" => "My profile",
-        "Logout" or "OidcLogout" => "Sign out?",
+        "OidcLogout" => "Sign out?",
         "InvalidRequest" => "Unable to continue",
         "AccessDenied" => "Access denied",
         _ => IsOidc ? "Sign in" : "Welcome back"

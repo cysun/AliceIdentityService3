@@ -130,6 +130,7 @@ public sealed class MigrationTests
                 var protocol = new OidcTestClient(migrated, factory);
                 using (protocol.Browser)
                 {
+                    string? logoutHint = null;
                     foreach (var confidential in new[] { false, true })
                     {
                         var clientId = confidential ? "confidential-test-client" : OidcTestClient.ClientId;
@@ -140,6 +141,7 @@ public sealed class MigrationTests
                         var response = await protocol.Redeem(code, clientId: clientId, secret: secret);
                         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                         var tokens = await response.Content.ReadFromJsonAsync<JsonElement>();
+                        logoutHint = tokens.GetProperty("id_token").GetString();
                         var id = await protocol.ValidateIdToken(tokens.GetProperty("id_token").GetString()!, clientId);
                         Assert.Equal(userId, id.Subject);
                         Assert.Equal("Computing", id.GetClaim("department").Value);
@@ -154,12 +156,11 @@ public sealed class MigrationTests
                         }));
                         Assert.Equal(HttpStatusCode.OK, refresh.StatusCode);
                     }
-                    var logout = await protocol.Browser.GetStringAsync("/connect/logout");
-                    Assert.Equal(HttpStatusCode.Redirect, (await protocol.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(new Dictionary<string, string>
+                    var logout = await protocol.Browser.PostAsync("/connect/logout", new FormUrlEncodedContent(new Dictionary<string, string?>
                     {
-                        ["confirm"] = "yes",
-                        ["__RequestVerificationToken"] = OidcTestClient.Field(logout, "__RequestVerificationToken")
-                    }))).StatusCode);
+                        ["id_token_hint"] = logoutHint
+                    }));
+                    Assert.Equal("/Account/Login", logout.Headers.Location!.OriginalString);
                     Assert.Equal(HttpStatusCode.Unauthorized, (await protocol.Browser.GetAsync("/api/admin/session")).StatusCode);
                 }
             }
