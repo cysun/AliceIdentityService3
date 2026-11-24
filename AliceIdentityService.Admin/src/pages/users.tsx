@@ -7,7 +7,15 @@ import {
   useParams,
   useSearchParams,
 } from 'react-router-dom';
-import { ArrowLeft, LockKeyhole, MailCheck, Search, ShieldCheck, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  LockKeyhole,
+  MailCheck,
+  Search,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserTable, StatusBadge } from '@/components/user-table';
 import {
   AdminApiError,
@@ -152,7 +159,7 @@ export function UsersPage() {
   const sizes = [...new Set([25, 50, 100, pageSize])].sort((a, b) => a - b).map(String);
   return (
     <>
-      <div className="page-heading user-directory-heading">
+      <div className="page-heading">
         <h1>Users</h1>
         <UserOperationButton
           operation="create"
@@ -289,7 +296,6 @@ export function UsersPage() {
 
 export function UserDetail() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState('profile');
   const [notice, setNotice] = useState('');
   const { id = '' } = useParams();
   const { search } = useLocation();
@@ -312,6 +318,11 @@ export function UserDetail() {
     return () => controller.abort();
   }, [id, key, request]);
   const data = result?.key === key ? result.data : undefined;
+  const reload = () => setRevision((value) => value + 1);
+  function updated(message: string) {
+    setNotice(message);
+    reload();
+  }
   return (
     <>
       <Link className="back-link" to={'/users' + search}>
@@ -332,141 +343,138 @@ export function UserDetail() {
         </>
       ) : (
         <>
-          <div className="page-heading">
+          <header className="page-heading">
             <div className="person">
               <span className="avatar large" aria-hidden="true">
                 {initials(data.user.name)}
               </span>
               <div>
-                <h1>{data.user.name}</h1>
+                <div className="person-name">
+                  <h1>{data.user.name}</h1>
+                  <StatusBadge status={data.user.status} />
+                </div>
                 <p>{data.user.email || 'No email address'}</p>
               </div>
             </div>
-            <StatusBadge status={data.user.status} />
-          </div>
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList aria-label="User information">
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="claims">Claims</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-            </TabsList>
-            <TabsContent value="profile">
-              <section className="panel detail-panel">
-                <h2>Account details</h2>
-                <dl className="detail-list">
-                  <div>
-                    <dt>User ID</dt>
-                    <dd>{data.user.id}</dd>
-                  </div>
-                  <div>
-                    <dt>First name</dt>
-                    <dd>{data.firstName}</dd>
-                  </div>
-                  <div>
-                    <dt>Last name</dt>
-                    <dd>{data.lastName}</dd>
-                  </div>
-                  <div>
-                    <dt>Display name</dt>
-                    <dd>{data.screenName || data.user.name}</dd>
-                  </div>
-                  <div>
-                    <dt>Email address</dt>
-                    <dd>{data.user.email || 'No email address'}</dd>
-                  </div>
-                  <div>
-                    <dt>Email confirmed</dt>
-                    <dd>{data.emailConfirmed ? 'Yes' : 'No'}</dd>
-                  </div>
-                  <div>
-                    <dt>Account created</dt>
-                    <dd>
-                      <time dateTime={data.user.createdAt}>
-                        {new Date(data.user.createdAt).toLocaleString()}
-                      </time>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Administrator</dt>
-                    <dd>{data.user.administrator ? 'Yes' : 'No'}</dd>
-                  </div>
-                </dl>
+            <UserOperationButton
+              operation="delete"
+              data={data}
+              onReload={reload}
+              onSuccess={() => navigate('/users' + search)}
+            />
+          </header>
+          <div className="user-details">
+            <section className="panel" aria-labelledby="user-profile-heading">
+              <header className="panel-heading">
+                <h2 id="user-profile-heading">
+                  <UserRound aria-hidden="true" />
+                  Profile
+                </h2>
                 <UserOperationButton
                   operation="edit"
                   data={data}
-                  onReload={() => setRevision((value) => value + 1)}
-                  onSuccess={() => {
-                    setNotice('Account updated.');
-                    setRevision((value) => value + 1);
-                  }}
+                  onReload={reload}
+                  onSuccess={() => updated('Account updated.')}
                 />
-              </section>
-            </TabsContent>
-            <TabsContent value="claims">
-              <UserClaims
-                data={data}
-                onReload={() => setRevision((value) => value + 1)}
-                onSuccess={() => {
-                  setNotice('Claims updated.');
-                  setRevision((value) => value + 1);
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="security">
-              <section className="panel detail-panel">
-                <h2>Account security</h2>
-                <dl className="detail-list">
-                  <div>
-                    <dt>Status</dt>
-                    <dd>{data.user.status}</dd>
-                  </div>
-                  <div>
-                    <dt>Password set</dt>
-                    <dd>{data.security.hasPassword ? 'Yes' : 'No'}</dd>
-                  </div>
-                  <div>
-                    <dt>Two-factor enabled</dt>
-                    <dd>{data.security.twoFactorEnabled ? 'Yes' : 'No'}</dd>
-                  </div>
-                  <div>
-                    <dt>Lockout enabled</dt>
-                    <dd>{data.security.lockoutEnabled ? 'Yes' : 'No'}</dd>
-                  </div>
-                  <div>
-                    <dt>Lockout end</dt>
-                    <dd>
-                      {data.security.lockoutEnd?.startsWith('9999-')
-                        ? 'Until unlocked'
-                        : data.security.lockoutEnd
-                          ? new Date(data.security.lockoutEnd).toLocaleString()
-                          : 'None'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Failed sign-in attempts</dt>
-                    <dd>{data.security.accessFailedCount}</dd>
-                  </div>
-                </dl>
-                <div className="security-actions">
-                  {(['password', 'lock', 'unlock', 'delete'] as const).map((operation) => (
-                    <UserOperationButton
-                      key={operation}
-                      operation={operation}
-                      data={data}
-                      onReload={() => setRevision((value) => value + 1)}
-                      onSuccess={() => {
-                        if (operation === 'delete') navigate('/users' + search);
-                        else {
-                          setNotice('Account security updated.');
-                          setRevision((value) => value + 1);
-                        }
-                      }}
-                    />
-                  ))}
+              </header>
+              <dl className="detail-rows">
+                <div>
+                  <dt>First name</dt>
+                  <dd>{data.firstName}</dd>
                 </div>
-              </section>
-            </TabsContent>
-          </Tabs>
+                <div>
+                  <dt>Last name</dt>
+                  <dd>{data.lastName}</dd>
+                </div>
+                <div>
+                  <dt>Display name</dt>
+                  <dd>{data.screenName || data.user.name}</dd>
+                </div>
+                <div>
+                  <dt>Email address</dt>
+                  <dd>{data.user.email || 'No email address'}</dd>
+                </div>
+                <div>
+                  <dt>Email confirmed</dt>
+                  <dd>{data.emailConfirmed ? 'Yes' : 'No'}</dd>
+                </div>
+                <div>
+                  <dt>Account created</dt>
+                  <dd>
+                    <time dateTime={data.user.createdAt}>
+                      {new Date(data.user.createdAt).toLocaleString()}
+                    </time>
+                  </dd>
+                </div>
+                <div>
+                  <dt>User ID</dt>
+                  <dd>{data.user.id}</dd>
+                </div>
+              </dl>
+            </section>
+            <section className="panel" aria-labelledby="user-security-heading">
+              <header className="panel-heading">
+                <h2 id="user-security-heading">
+                  <ShieldCheck aria-hidden="true" />
+                  Security
+                </h2>
+                <div className="heading-actions">
+                  {(['password', data.user.status === 'Locked' ? 'unlock' : 'lock'] as const).map(
+                    (operation) => (
+                      <UserOperationButton
+                        key={operation}
+                        operation={operation}
+                        data={data}
+                        onReload={reload}
+                        onSuccess={() => updated('Account security updated.')}
+                      />
+                    ),
+                  )}
+                </div>
+              </header>
+              <dl className="detail-rows">
+                <div>
+                  <dt>Status</dt>
+                  <dd>{data.user.status}</dd>
+                </div>
+                <div>
+                  <dt>Administrator</dt>
+                  <dd>{data.user.administrator ? 'Yes' : 'No'}</dd>
+                </div>
+                <div>
+                  <dt>Password set</dt>
+                  <dd>{data.security.hasPassword ? 'Yes' : 'No'}</dd>
+                </div>
+                <div>
+                  <dt>Two-factor enabled</dt>
+                  <dd>{data.security.twoFactorEnabled ? 'Yes' : 'No'}</dd>
+                </div>
+                <div>
+                  <dt>Lockout enabled</dt>
+                  <dd>{data.security.lockoutEnabled ? 'Yes' : 'No'}</dd>
+                </div>
+                <div>
+                  <dt>Lockout end</dt>
+                  <dd>
+                    {data.security.lockoutEnd?.startsWith('9999-')
+                      ? 'Until unlocked'
+                      : data.security.lockoutEnd
+                        ? new Date(data.security.lockoutEnd).toLocaleString()
+                        : 'None'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Failed sign-in attempts</dt>
+                  <dd>{data.security.accessFailedCount}</dd>
+                </div>
+              </dl>
+            </section>
+            <UserClaims
+              data={data}
+              onReload={reload}
+              onSuccess={() => updated('Claims updated.')}
+            />
+          </div>
         </>
       )}
     </>

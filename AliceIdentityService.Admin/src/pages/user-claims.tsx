@@ -1,3 +1,4 @@
+import { List, Trash2 } from 'lucide-react';
 import { AdminMutationDialog } from '@/components/admin-mutation-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,15 +30,14 @@ export function UserClaims({
   const self = session.user.id === data.user.id;
   const admins = data.claims.filter((claim) => claim.type === 'ais_admin').length;
   return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <h2>Claims</h2>
-          <p>Claims are shared according to each application’s allowed scopes.</p>
-        </div>
+    <section className="panel claims-panel" aria-labelledby="user-claims-heading">
+      <header className="panel-heading">
+        <h2 id="user-claims-heading">
+          <List aria-hidden="true" />
+          Claims
+        </h2>
         <AdminMutationDialog
           title="Add claim"
-          triggerVariant="default"
           description={'Assign a claim type and value. ' + effect}
           target={target}
           path={path}
@@ -74,13 +74,12 @@ export function UserClaims({
           </p>
           {self && <p>You will need to sign in again after changing your own claims.</p>}
         </AdminMutationDialog>
-      </div>
+        <p>Claims are shared according to each application’s allowed scopes.</p>
+      </header>
       {data.claims.length === 0 ? (
-        <div className="detail-panel">
-          <p>No additional claims.</p>
-        </div>
+        <p className="panel-note">No additional claims.</p>
       ) : (
-        <Table className="claim-table">
+        <Table className="claim-table" aria-labelledby="user-claims-heading">
           <TableHeader>
             <TableRow>
               <TableHead>Type</TableHead>
@@ -100,6 +99,12 @@ export function UserClaims({
                 <TableCell>
                   <AdminMutationDialog
                     title="Remove claim"
+                    triggerContent={
+                      <>
+                        <Trash2 aria-hidden="true" />
+                        <span className="claim-action-label">Remove</span>
+                      </>
+                    }
                     description={effect}
                     target={
                       target +
@@ -121,11 +126,7 @@ export function UserClaims({
           </TableBody>
         </Table>
       )}
-      {self && (
-        <p className="detail-panel form-hint">
-          You cannot remove your own last administrator claim.
-        </p>
-      )}
+      {self && <p className="panel-note">You cannot remove your own last administrator claim.</p>}
     </section>
   );
 }

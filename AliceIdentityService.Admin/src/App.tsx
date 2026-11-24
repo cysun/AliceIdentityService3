@@ -3,6 +3,7 @@ import {
   BrowserRouter,
   Link,
   matchPath,
+  Navigate,
   NavLink,
   Route,
   Routes,
@@ -22,7 +23,7 @@ import { UserMenu } from '@/components/user-menu';
 import { Overview } from '@/pages/overview';
 import { AdminAccess } from '@/lib/admin-session';
 import { useAdminSession } from '@/lib/admin-context';
-import { ScopeDetail, ScopesPage } from '@/pages/scopes';
+import { ScopesPage } from '@/pages/scopes';
 const Profile = lazy(() => import('@/pages/profile'));
 const UsersPage = lazy(() =>
   import('@/pages/users').then((module) => ({ default: module.UsersPage })),
@@ -53,7 +54,7 @@ export function AdminShell() {
   const initials = (
     user.firstName.charAt(0) + user.lastName.charAt(0) || name.slice(0, 2)
   ).toUpperCase();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const section = navigation.find(({ path }) => matchPath({ path, end: path === '/' }, pathname));
   return (
     <div className="admin-layout">
@@ -133,7 +134,10 @@ export function AdminShell() {
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/scopes" element={<ScopesPage />} />
-              <Route path="/scopes/:id" element={<ScopeDetail />} />
+              <Route
+                path="/scopes/:id"
+                element={<Navigate to={{ pathname: '/scopes', search }} replace />}
+              />
               <Route path="/profile" element={<Profile />} />
               <Route
                 path="*"

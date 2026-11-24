@@ -32,6 +32,10 @@ const titles: Record<Operation, string> = {
   unlock: 'Unlock account',
   delete: 'Delete account',
 };
+const triggerLabels: Partial<Record<Operation, string>> = {
+  lock: 'Lock',
+  unlock: 'Unlock',
+};
 const messages: Record<Operation, string> = {
   create:
     'Create an ordinary, confirmed account after verifying its email address. No email is sent and no administrator claim is assigned.',
@@ -75,6 +79,7 @@ export function UserOperationButton({
       }}
     >
       <DialogTrigger
+        aria-label={titles[operation]}
         render={
           <Button
             variant={
@@ -89,7 +94,7 @@ export function UserOperationButton({
           />
         }
       >
-        {titles[operation]}
+        {triggerLabels[operation] ?? titles[operation]}
       </DialogTrigger>
       <DialogContent className="admin-user-dialog" showCloseButton={!busy}>
         <DialogHeader>

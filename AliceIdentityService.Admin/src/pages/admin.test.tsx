@@ -225,8 +225,8 @@ describe('live administration', () => {
 
   it.each([
     ['Total users 42', 'Users', 'Total', 'Create account'],
-    ['Connected applications 9', 'Clients', 'No clients match this search.', 'Register client'],
-    ['Custom scopes 4', 'Scopes', 'No scopes match this search.', 'Create scope'],
+    ['Connected applications 9', 'Clients', 'No clients registered.', 'Register client'],
+    ['Custom scopes 4', 'Scopes', 'No scopes defined.', 'Create scope'],
   ])('opens %s and rechecks access', async (card, directory, expectedText, createAction) => {
     const fetch = api();
     mount();

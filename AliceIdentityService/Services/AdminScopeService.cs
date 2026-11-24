@@ -27,7 +27,8 @@ public sealed class AdminScopeService(AisDbContext database, AdminWriteGuard gua
         }
         var count = await query.LongCountAsync(cancellationToken);
         var page = (int)Math.Min(input.Page, Math.Max(1, (count + input.PageSize - 1) / input.PageSize));
-        var records = await query.OrderBy(scope => scope.Name).ThenBy(scope => scope.Id)
+        var records = await query.OrderBy(scope => scope.Name != null && AisConstants.StandardScopeNames.Contains(scope.Name))
+            .ThenBy(scope => scope.Name).ThenBy(scope => scope.Id)
             .Skip((page - 1) * input.PageSize).Take(input.PageSize).ToListAsync(cancellationToken);
         var items = new List<AdminScopeDetail>();
         foreach (var scope in records) items.Add(await DetailAsync(scope, cancellationToken));

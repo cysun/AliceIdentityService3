@@ -39,7 +39,7 @@ function api(
   options: {
     self?: boolean;
     tokenUser?: string;
-    write?: (path: string, body: Record<string, unknown>) => Promise<Response>;
+    write?: (path: string, body: Record<string, unknown>) => Promise<Response | void>;
   } = {},
 ) {
   let detail = structuredClone(original);
@@ -69,15 +69,21 @@ function api(
       return json({ totalUsers: 2, administrators: 1, unconfirmedUsers: 0, lockedUsers: 0 });
     if (init?.method === 'POST' || init?.method === 'DELETE') {
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
-      if (options.write) return options.write(path, body);
+      const response = await options.write?.(path, body);
+      if (response) return response;
       if (path.endsWith('/profile'))
         detail = { ...detail, firstName: String(body.firstName), version: 'B'.repeat(64) };
-      if (path.endsWith('/unlock'))
-        detail = {
-          ...detail,
-          version: 'B'.repeat(64),
-          security: { ...detail.security, accessFailedCount: 0 },
-        };
+      if (path.endsWith('/lock')) {
+        detail.user.status = 'Locked';
+        detail.security.lockoutEnd = '2026-11-16T12:00:00Z';
+        detail.version = 'B'.repeat(64);
+      }
+      if (path.endsWith('/unlock')) {
+        detail.user.status = 'Confirmed';
+        detail.security.lockoutEnd = null;
+        detail.security.accessFailedCount = 0;
+        detail.version = 'C'.repeat(64);
+      }
       return json({ id: detail.user.id, sessionEnded: false });
     }
     if (url.pathname === '/api/admin/users')
@@ -112,11 +118,9 @@ function mount(path = '/users/target?q=person') {
     </MemoryRouter>,
   );
 }
-async function open(name: string, security = false) {
+async function open(name: string) {
   const user = userEvent.setup();
-  await screen.findByRole('heading', { name: 'Test Person' });
-  if (security) await user.click(screen.getByRole('tab', { name: 'Security' }));
-  await user.click(screen.getByRole('button', { name }));
+  await user.click(await screen.findByRole('button', { name }));
   return within(await screen.findByRole('dialog', { name }));
 }
 function fill(name: string, value: string) {
@@ -139,7 +143,7 @@ describe('administrative account operations', () => {
     );
     const profile = screen.getByRole('link', { name: 'Profile' });
     await user.click(profile);
-    await screen.findByRole('heading', { name: 'Profile' });
+    await screen.findByRole('heading', { level: 1, name: 'Profile' });
     expect(profile).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
       'Administration/Profile',
@@ -246,31 +250,41 @@ describe('administrative account operations', () => {
     expect((await open('Edit account')).getByLabelText('First name')).toHaveValue('Test');
   });
 
-  it('preserves the Security tab after unlocking and prevents duplicate submissions while pending', async () => {
-    let resolve!: (response: Response) => void;
-    const waiting = new Promise<Response>((complete) => {
+  it('switches between Lock and Unlock after each change and prevents duplicate submissions', async () => {
+    let resolve!: () => void;
+    const waiting = new Promise<void>((complete) => {
       resolve = complete;
     });
     const server = api({ write: () => waiting });
+    const user = userEvent.setup();
     mount();
-    const dialog = await open('Unlock account', true);
-    const button = dialog.getByRole('button', { name: 'Unlock account' });
-    await userEvent.setup().dblClick(button);
+    expect(await screen.findByRole('button', { name: 'Lock account' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Unlock account' })).not.toBeInTheDocument();
+    const dialog = await open('Lock account');
+    await user.dblClick(dialog.getByRole('button', { name: 'Lock account' }));
     expect(server.writes()).toHaveLength(1);
     expect(dialog.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     expect(dialog.getByRole('button', { name: 'Cancel' })).toBeDisabled();
-    await userEvent.setup().keyboard('{Escape}');
+    await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    await act(async () => resolve(json({ id: 'target', sessionEnded: false })));
+    await act(async () => resolve());
     await screen.findByText('Account security updated.');
-    await screen.findByRole('heading', { name: 'Account security' });
-    expect(screen.getByRole('tab', { name: 'Security' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('button', { name: 'Unlock account' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Lock account' })).not.toBeInTheDocument();
+    const unlock = await open('Unlock account');
+    await user.click(unlock.getByRole('button', { name: 'Unlock account' }));
+    expect(await screen.findByRole('button', { name: 'Lock account' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Unlock account' })).not.toBeInTheDocument();
+    expect(server.writes().map(([path]) => path)).toEqual([
+      '/api/admin/users/target/lock',
+      '/api/admin/users/target/unlock',
+    ]);
   });
 
   it('requires exact deletion confirmation and returns to the preserved directory query', async () => {
     const server = api();
     mount();
-    const dialog = await open('Delete account', true);
+    const dialog = await open('Delete account');
     const button = dialog.getByRole('button', { name: 'Delete account' });
     expect(button).toBeDisabled();
     const input = dialog.getByRole('textbox');
@@ -296,7 +310,6 @@ describe('administrative account operations', () => {
       'true',
     );
     await userEvent.setup().click(dialog.getByRole('button', { name: 'Cancel' }));
-    await userEvent.setup().click(screen.getByRole('tab', { name: 'Security' }));
     expect(screen.getByRole('button', { name: 'Delete account' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Lock account' })).toBeDisabled();
     dialog = await open('Reset password');

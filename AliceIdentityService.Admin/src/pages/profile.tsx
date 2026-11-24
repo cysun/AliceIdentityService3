@@ -34,15 +34,23 @@ export default function Profile() {
       <div className="page-heading">
         <h1>Profile</h1>
         {details && (
-          <UserOperationButton
-            operation="profile"
-            data={details}
-            onReload={reload}
-            onSuccess={() => {
-              setNotice('Profile updated.');
-              reload();
-            }}
-          />
+          <div className="heading-actions">
+            <UserOperationButton
+              operation="profile"
+              data={details}
+              onReload={reload}
+              onSuccess={() => {
+                setNotice('Profile updated.');
+                reload();
+              }}
+            />
+            <a
+              className={cn(buttonVariants({ variant: 'outline' }))}
+              href="/Account/ChangePassword"
+            >
+              Change password
+            </a>
+          </div>
         )}
       </div>
       {notice && (
@@ -71,14 +79,6 @@ export default function Profile() {
               <dd>{details.user.email || 'No email address'}</dd>
             </div>
           </dl>
-          <div className="security-actions">
-            <a
-              className={cn(buttonVariants({ variant: 'outline' }))}
-              href="/Account/ChangePassword"
-            >
-              Change password
-            </a>
-          </div>
         </section>
       ) : (
         <p role="status">Loading profile…</p>

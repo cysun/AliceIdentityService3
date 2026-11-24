@@ -1,7 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { AppWindow, ArrowLeft, ListFilter } from 'lucide-react';
 import { AdminMutationDialog } from '@/components/admin-mutation-dialog';
+import { DirectoryCard, IdentifierList } from '@/components/directory-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,14 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { AdminApiError, type AdminClientDetail, type AdminClientPage } from '@/lib/admin-api';
+  AdminApiError,
+  type AdminClient,
+  type AdminClientDetail,
+  type AdminClientPage,
+} from '@/lib/admin-api';
 import { useAdminSession } from '@/lib/admin-context';
 
 const types = [
@@ -239,32 +237,89 @@ function ClientEditor({
   );
 }
 
+function clientName(client: AdminClient) {
+  return client.displayName || client.clientId || client.id;
+}
+
+function ClientCard({ client, search }: { client: AdminClient; search: string }) {
+  return (
+    <DirectoryCard
+      to={{ pathname: '/clients/' + encodeURIComponent(client.id), search }}
+      title={clientName(client)}
+      identifier={client.clientId}
+      identifierLabel="Client ID"
+      icon={AppWindow}
+    >
+      <div>
+        <dt>Client type</dt>
+        <dd className="first-letter:uppercase">{client.clientType || 'Unknown'}</dd>
+      </div>
+      <div>
+        <dt>PKCE</dt>
+        <dd>{client.requirePkce ? 'Required' : 'Optional'}</dd>
+      </div>
+      <div className="col-span-full">
+        <dt>Allowed scopes</dt>
+        <dd>
+          <IdentifierList values={client.scopes} />
+        </dd>
+      </div>
+    </DirectoryCard>
+  );
+}
+
+const clientsPerPage = 25;
+
 export function ClientsPage() {
   const { request } = useAdminSession();
   const navigate = useNavigate();
+  const { key, search } = useLocation();
   const [params, setParams] = useSearchParams();
   const [revision, setRevision] = useState(0);
-  const query = (params.get('q') ?? '').slice(0, 200);
+  const savedFilter = (params.get('q') ?? '').slice(0, 200);
+  const [draft, setDraft] = useState<{ key: string; value: string } | null>(null);
+  const filter = draft?.key === key ? draft.value : savedFilter;
+  const filterSearch = filter ? '?' + new URLSearchParams({ q: filter }) : '';
+  const listSearch = filter === savedFilter ? search : filterSearch;
   const rawPage = Number(params.get('page') ?? 1);
-  const page = Number.isInteger(rawPage) && rawPage > 0 && rawPage <= 10000 ? rawPage : 1;
-  const search = new URLSearchParams({ q: query, page: String(page) }).toString();
-  const key = search + ':' + revision;
-  const [result, setResult] = useState<{ key: string; data: AdminClientPage } | null>(null);
+  const [clients, setClients] = useState<AdminClient[] | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    request<AdminClientPage>('/api/admin/clients?' + search, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setResult({ key, data });
-      })
-      .catch(() => {});
+    async function load() {
+      const records = new Map<string, AdminClient>();
+      let page = 1;
+      while (true) {
+        const data = await request<AdminClientPage>(
+          `/api/admin/clients?page=${page}&pageSize=100`,
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+        for (const client of data.items) records.set(client.id, client);
+        if (data.page * data.pageSize >= data.totalCount) break;
+        page = data.page + 1;
+      }
+      setClients([...records.values()]);
+    }
+    load().catch(() => {
+      /* The session boundary handles authorization and service failures. */
+    });
     return () => controller.abort();
-  }, [key, search, request]);
-  const data = result?.key === key ? result.data : undefined;
-  const reload = () => setRevision((value) => value + 1);
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const q = String(new FormData(event.currentTarget).get('q') ?? '').trim();
-    setParams(q ? { q } : {});
+  }, [revision, request]);
+  function reload() {
+    setClients(null);
+    setRevision((value) => value + 1);
+  }
+  const term = filter.trim().toLowerCase();
+  const matches =
+    clients?.filter((client) => clientName(client).toLowerCase().includes(term)) ?? [];
+  const pages = Math.max(1, Math.ceil(matches.length / clientsPerPage));
+  const page =
+    filter === savedFilter && Number.isInteger(rawPage) && rawPage > 0
+      ? Math.min(rawPage, pages)
+      : 1;
+  const visible = matches.slice((page - 1) * clientsPerPage, page * clientsPerPage);
+  function goToPage(next: number) {
+    setParams(filter ? { q: filter, page: String(next) } : { page: String(next) });
   }
   return (
     <>
@@ -278,87 +333,62 @@ export function ClientsPage() {
           onReload={reload}
         />
       </div>
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Registered applications</h2>
-            <p>Manage sign-in settings and the information each application may request.</p>
+      <section className="directory" aria-label="Registered applications">
+        <div className="directory-toolbar">
+          <div className="search-field">
+            <ListFilter size={16} aria-hidden="true" />
+            <Input
+              type="search"
+              aria-label="Filter clients by name"
+              placeholder="Filter by name…"
+              maxLength={200}
+              value={filter}
+              onChange={(event) => setDraft({ key, value: event.target.value })}
+              onBlur={() => {
+                // Save the filter for Back without navigating on every keystroke.
+                if (filter !== savedFilter) setParams(filterSearch, { replace: true });
+              }}
+            />
           </div>
-        </div>
-        <form className="table-toolbar" onSubmit={submit}>
-          <Input
-            key={query}
-            name="q"
-            aria-label="Search clients"
-            defaultValue={query}
-            placeholder="Search by name or client ID…"
-            maxLength={200}
-          />
-          <Button type="submit" variant="outline">
-            Search
-          </Button>
-        </form>
-        {!data ? (
-          <p className="detail-panel" role="status">
-            Loading clients…
-          </p>
-        ) : (
-          <>
-            <Table className="claim-table" aria-label="Clients">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Application</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Allowed scopes</TableHead>
-                  <TableHead>PKCE</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell>
-                      <Link to={'/clients/' + encodeURIComponent(client.id) + '?' + search}>
-                        {client.displayName || client.clientId || client.id}
-                      </Link>
-                      <div>
-                        <code>{client.clientId}</code>
-                      </div>
-                    </TableCell>
-                    <TableCell>{client.clientType || 'Unknown'}</TableCell>
-                    <TableCell>
-                      <code>{client.scopes.join(' · ') || 'None'}</code>
-                    </TableCell>
-                    <TableCell>{client.requirePkce ? 'Required' : 'Optional'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {data.items.length === 0 && (
-              <p className="detail-panel">No clients match this search.</p>
+          <span role="status">
+            {clients ? (
+              <>
+                {term && `${matches.length} of `}
+                {clients.length} {clients.length === 1 ? 'client' : 'clients'}
+              </>
+            ) : (
+              'Loading clients…'
             )}
-            <div className="table-footer user-pagination">
-              <span>
-                {data.totalCount} clients · Page {data.page} of{' '}
-                {Math.max(1, Math.ceil(data.totalCount / data.pageSize))}
-              </span>
-              <div className="pagination-controls">
-                <Button
-                  variant="outline"
-                  disabled={data.page <= 1}
-                  onClick={() => setParams({ q: query, page: String(data.page - 1) })}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={data.page * data.pageSize >= data.totalCount}
-                  onClick={() => setParams({ q: query, page: String(data.page + 1) })}
-                >
-                  Next
-                </Button>
-              </div>
+          </span>
+        </div>
+        {clients &&
+          (matches.length ? (
+            <ul className="directory-grid" role="list" aria-label="Clients">
+              {visible.map((client) => (
+                <li key={client.id}>
+                  <ClientCard client={client} search={listSearch} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="panel panel-note">
+              {clients.length ? 'No clients match this name.' : 'No clients registered.'}
+            </p>
+          ))}
+        {pages > 1 && (
+          <div className="table-footer user-pagination">
+            <span>
+              Page {page} of {pages}
+            </span>
+            <div className="pagination-controls">
+              <Button variant="outline" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
+                Previous
+              </Button>
+              <Button variant="outline" disabled={page >= pages} onClick={() => goToPage(page + 1)}>
+                Next
+              </Button>
             </div>
-          </>
+          </div>
         )}
       </section>
     </>
@@ -415,13 +445,51 @@ export function ClientDetail() {
         <>
           <div className="page-heading">
             <div>
-              <h1>{data.client.displayName || data.client.clientId || data.client.id}</h1>
+              <h1>{clientName(data.client)}</h1>
               <p>{data.client.clientId}</p>
             </div>
-            {data.canManage && <ClientEditor data={data} onSuccess={saved} onReload={reload} />}
+            <div className="heading-actions">
+              {data.canManage && <ClientEditor data={data} onSuccess={saved} onReload={reload} />}
+              <AdminMutationDialog
+                title="Delete client"
+                description="Permanently remove this registration and its stored authorizations and tokens. The application will no longer be able to sign users in through this client ID. This cannot be undone."
+                target={data.client.clientId ?? data.client.id}
+                confirmation={data.client.clientId ?? data.client.id}
+                path={'/api/admin/clients/' + encodeURIComponent(id)}
+                method="DELETE"
+                input={(fields) => ({
+                  version: data.version,
+                  confirmation: fields.get('confirmation'),
+                })}
+                onSuccess={() => navigate('/clients' + search)}
+                onReload={reload}
+              />
+            </div>
           </div>
           <section className="panel detail-panel">
-            <h2>Client settings</h2>
+            <header className="panel-heading">
+              <h2>Client settings</h2>
+              {data.canManage && (
+                <AdminMutationDialog
+                  title="Change credentials"
+                  submitLabel="Save credentials"
+                  description="Rotate the secret or change the client type. This invalidates this application's codes and refresh tokens. Update the application configuration before signing in again. Converting to public removes the secret and enables PKCE."
+                  target={data.client.clientId ?? data.client.id}
+                  confirmation={data.client.clientId ?? data.client.id}
+                  path={'/api/admin/clients/' + encodeURIComponent(id) + '/credentials'}
+                  input={(fields) => ({
+                    version: data.version,
+                    clientType: fields.get('clientType'),
+                    clientSecret: fields.get('clientSecret'),
+                    confirmation: fields.get('confirmation'),
+                  })}
+                  onSuccess={saved}
+                  onReload={reload}
+                >
+                  <CredentialFields initialType={data.client.clientType ?? 'public'} />
+                </AdminMutationDialog>
+              )}
+            </header>
             {!data.canManage && (
               <p>
                 This imported client uses a type, consent mode or flow outside the supported
@@ -490,42 +558,6 @@ export function ClientDetail() {
               openid is always available. offline_access requires refresh-token permission. Already
               issued JWTs and application-local sessions may remain valid until their own expiry.
             </p>
-            <div className="security-actions">
-              {data.canManage && (
-                <AdminMutationDialog
-                  title="Change credentials"
-                  submitLabel="Save credentials"
-                  description="Rotate the secret or change the client type. This invalidates this application's codes and refresh tokens. Update the application configuration before signing in again. Converting to public removes the secret and enables PKCE."
-                  target={data.client.clientId ?? data.client.id}
-                  confirmation={data.client.clientId ?? data.client.id}
-                  path={'/api/admin/clients/' + encodeURIComponent(id) + '/credentials'}
-                  input={(fields) => ({
-                    version: data.version,
-                    clientType: fields.get('clientType'),
-                    clientSecret: fields.get('clientSecret'),
-                    confirmation: fields.get('confirmation'),
-                  })}
-                  onSuccess={saved}
-                  onReload={reload}
-                >
-                  <CredentialFields initialType={data.client.clientType ?? 'public'} />
-                </AdminMutationDialog>
-              )}
-              <AdminMutationDialog
-                title="Delete client"
-                description="Permanently remove this registration and its stored authorizations and tokens. The application will no longer be able to sign users in through this client ID. This cannot be undone."
-                target={data.client.clientId ?? data.client.id}
-                confirmation={data.client.clientId ?? data.client.id}
-                path={'/api/admin/clients/' + encodeURIComponent(id)}
-                method="DELETE"
-                input={(fields) => ({
-                  version: data.version,
-                  confirmation: fields.get('confirmation'),
-                })}
-                onSuccess={() => navigate('/clients' + search)}
-                onReload={reload}
-              />
-            </div>
           </section>
         </>
       )}

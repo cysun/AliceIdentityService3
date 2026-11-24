@@ -261,6 +261,18 @@ public sealed class AdminClaimScopeTests
     }
 
     [PostgresFact]
+    public async Task ScopeSearchListsCustomScopesFirstAcrossPages()
+    {
+        await using var client = await OidcTestClient.Create();
+        await Login(client.Browser);
+        await CreateScope(client.Browser, "z-profile");
+        var first = (await client.Browser.GetFromJsonAsync<AdminScopePage>("/api/admin/scopes?pageSize=2"))!;
+        Assert.Equal(new[] { "department", "z-profile" }, first.Items.Select(scope => scope.Name));
+        var second = (await client.Browser.GetFromJsonAsync<AdminScopePage>("/api/admin/scopes?q=profile&pageSize=1&page=2"))!;
+        Assert.Equal("profile", Assert.Single(second.Items).Name);
+    }
+
+    [PostgresFact]
     public async Task ScopeDeletionRejectsClientReferencesAndActiveGrantsAndSearchIsBounded()
     {
         await using var client = await OidcTestClient.Create();

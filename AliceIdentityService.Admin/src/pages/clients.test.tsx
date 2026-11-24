@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AdminShell } from '@/App';
 import { AdminAccess } from '@/lib/admin-session';
-import type { AdminClientDetail } from '@/lib/admin-api';
+import type { AdminClient, AdminClientDetail } from '@/lib/admin-api';
 
 function json(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -17,6 +17,7 @@ function api(
     confidential?: boolean;
     unsupported?: boolean;
     actor?: string;
+    otherClients?: AdminClient[];
     write?: (body: Record<string, unknown>) => Promise<Response>;
   } = {},
 ) {
@@ -87,13 +88,17 @@ function api(
         };
       return json({ id: 'record', sessionEnded: false });
     }
-    if (url.pathname === '/api/admin/clients')
+    if (url.pathname === '/api/admin/clients') {
+      const clients = [...(options.otherClients ?? []), ...(deleted ? [] : [detail.client])];
+      const page = Number(url.searchParams.get('page') ?? 1);
+      const pageSize = Number(url.searchParams.get('pageSize') ?? 25);
       return json({
-        items: deleted ? [] : [detail.client],
-        totalCount: deleted ? 0 : 1,
-        page: 1,
-        pageSize: 25,
+        items: clients.slice((page - 1) * pageSize, page * pageSize),
+        totalCount: clients.length,
+        page,
+        pageSize,
       });
+    }
     if (url.pathname.startsWith('/api/admin/clients/'))
       return deleted ? json({}, 404) : json(detail);
     throw new Error('Unexpected request: ' + path);
@@ -127,26 +132,66 @@ async function selectConfidential(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('client management', () => {
-  it('loads real directory rows, searches on the server and opens escaped details', async () => {
+  it('filters cards locally by name and opens details from the card body', async () => {
     const mock = api();
     const user = userEvent.setup();
     mount('/clients');
-    expect(await screen.findByRole('link', { name: 'Campus <Portal>' })).toBeVisible();
-    await user.type(screen.getByRole('textbox', { name: 'Search clients' }), '%_Campus');
-    await user.click(screen.getByRole('button', { name: 'Search' }));
-    await waitFor(() =>
-      expect(
-        mock.fetch.mock.calls.some(
-          ([path]) => new URL(path, 'https://localhost').searchParams.get('q') === '%_Campus',
-        ),
-      ).toBe(true),
+    const list = await screen.findByRole('list', { name: 'Clients' });
+    const card = within(list).getByRole('link', { name: 'Campus <Portal>' });
+    expect(card).toHaveAccessibleDescription(
+      /Client ID campus.*Client type.*public.*PKCE.*Required.*Allowed scopes.*email profile/i,
     );
-    await user.click(await screen.findByRole('link', { name: 'Campus <Portal>' }));
+    expect(within(card).getByText('campus')).toBeVisible();
+    expect(within(card).getByText('email')).toBeVisible();
+    expect(screen.queryByRole('table')).toBeNull();
+    const filter = screen.getByRole('searchbox', { name: 'Filter clients by name' });
+    const requests = mock.fetch.mock.calls.length;
+    await user.type(filter, 'public');
+    expect(screen.getByText('No clients match this name.')).toBeVisible();
+    await user.clear(filter);
+    await user.type(filter, 'pOrtAL');
+    expect(mock.fetch).toHaveBeenCalledTimes(requests);
+    const match = screen.getByRole('link', { name: 'Campus <Portal>' });
+    expect(match).toHaveAttribute('href', '/clients/record?q=pOrtAL');
+    await user.click(within(match).getByText('Required'));
     expect(await screen.findByRole('heading', { name: 'Campus <Portal>' })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(
       'Administration/Clients',
     );
     expect(document.querySelector('main script')).toBeNull();
+    await user.click(screen.getByRole('link', { name: 'All clients' }));
+    await screen.findByRole('link', { name: 'Campus <Portal>' });
+    expect(screen.getByRole('searchbox', { name: 'Filter clients by name' })).toHaveValue('pOrtAL');
+  });
+
+  it('filters across API pages and resets pagination when the name filter changes', async () => {
+    const otherClients = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      clientId: `campus-${index}`,
+      displayName: `Directory ${index}`,
+      clientType: 'public',
+      hasSecret: false,
+      requirePkce: true,
+      scopes: [],
+    }));
+    const mock = api({ otherClients });
+    const user = userEvent.setup();
+    mount('/clients?page=2');
+    const list = await screen.findByRole('list', { name: 'Clients' });
+    expect(within(list).getAllByRole('link')).toHaveLength(25);
+    expect(screen.getByText('Page 2 of 5')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Page 3 of 5')).toBeVisible();
+    await user.type(screen.getByRole('searchbox', { name: 'Filter clients by name' }), 'CaMpUs');
+    expect(within(list).getAllByRole('link')).toHaveLength(1);
+    expect(within(list).getByRole('link', { name: 'Campus <Portal>' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('1 of 101 clients');
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(
+      mock.fetch.mock.calls
+        .map(([path]) => path)
+        .filter((path) => path.startsWith('/api/admin/clients?')),
+    ).toEqual(['/api/admin/clients?page=1&pageSize=100', '/api/admin/clients?page=2&pageSize=100']);
   });
 
   it('registers a public PKCE client with the correct flags, scopes and CSRF', async () => {

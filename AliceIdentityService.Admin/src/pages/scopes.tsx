@@ -1,21 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, ShieldCheck } from 'lucide-react';
 import { AdminMutationDialog } from '@/components/admin-mutation-dialog';
+import { DirectoryCard, IdentifierList } from '@/components/directory-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { AdminApiError, type AdminScope, type AdminScopePage } from '@/lib/admin-api';
+import type { AdminScope, AdminScopePage } from '@/lib/admin-api';
 import { useAdminSession } from '@/lib/admin-context';
+
+function scopeTitle(scope: AdminScope) {
+  return scope.displayName || scope.name || 'Unnamed scope';
+}
 
 function ScopeEditor({
   data,
@@ -23,9 +19,10 @@ function ScopeEditor({
   onReload,
 }: {
   data?: AdminScope;
-  onSuccess: (id: string) => void;
+  onSuccess: () => void;
   onReload: () => void;
 }) {
+  const target = data ? data.name || scopeTitle(data) : undefined;
   const lines = (fields: FormData, name: string) =>
     String(fields.get(name) ?? '')
       .split(/\r?\n/)
@@ -34,11 +31,14 @@ function ScopeEditor({
   return (
     <AdminMutationDialog
       title={data ? 'Edit scope' : 'Create scope'}
+      triggerContent={data ? 'Edit' : undefined}
+      triggerLabel={data ? `Edit scope ${target}` : undefined}
       triggerVariant={data ? 'outline' : 'default'}
       submitLabel={data ? 'Save changes' : undefined}
+      reloadLabel="Reload scopes"
       description="Define the claims applications may request and the API resources that receive them. Changes apply to newly issued tokens and userinfo responses; issued JWTs retain their original claims until expiry."
       path={'/api/admin/scopes' + (data ? '/' + encodeURIComponent(data.id) : '')}
-      target={data?.name ?? undefined}
+      target={target}
       input={(fields) => ({
         ...(data ? { version: data.version } : {}),
         name: fields.get('name'),
@@ -112,33 +112,104 @@ function ScopeEditor({
   );
 }
 
+type RefreshScopes = (notice?: string) => void;
+
+function ScopeCard({ scope, refresh }: { scope: AdminScope; refresh: RefreshScopes }) {
+  const title = scopeTitle(scope);
+  const target = scope.name || title;
+  return (
+    <DirectoryCard
+      title={title}
+      identifier={scope.name}
+      identifierLabel="Scope name"
+      icon={ShieldCheck}
+      badge={scope.standard ? 'standard' : undefined}
+      description={scope.description}
+      actions={
+        !scope.standard && (
+          <>
+            <ScopeEditor
+              data={scope}
+              onSuccess={() => refresh('Scope updated.')}
+              onReload={refresh}
+            />
+            <AdminMutationDialog
+              title="Delete scope"
+              triggerContent="Delete"
+              triggerLabel={`Delete scope ${target}`}
+              description="Permanently remove this definition. Scopes allowed by a registered client or used by an active authorization cannot be deleted."
+              target={target}
+              confirmation={target}
+              path={'/api/admin/scopes/' + encodeURIComponent(scope.id)}
+              method="DELETE"
+              reloadLabel="Reload scopes"
+              input={(fields) => ({
+                version: scope.version,
+                // The API uses the internal ID for legacy scopes that have no name.
+                confirmation: scope.name ? fields.get('confirmation') : (scope.name ?? scope.id),
+              })}
+              onSuccess={() => refresh('Scope deleted.')}
+              onReload={refresh}
+            />
+          </>
+        )
+      }
+    >
+      <div>
+        <dt>Claims</dt>
+        <dd>
+          <IdentifierList values={scope.claims} />
+        </dd>
+      </div>
+      {scope.resources.length > 0 && (
+        <div>
+          <dt>Resources</dt>
+          <dd>
+            <IdentifierList values={scope.resources} />
+          </dd>
+        </div>
+      )}
+    </DirectoryCard>
+  );
+}
+
 export function ScopesPage() {
   const { request } = useAdminSession();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [revision, setRevision] = useState(0);
+  const [notice, setNotice] = useState('');
   const query = (params.get('q') ?? '').slice(0, 200);
   const rawPage = Number(params.get('page') ?? 1);
   const page = Number.isInteger(rawPage) && rawPage > 0 && rawPage <= 10000 ? rawPage : 1;
   const search = new URLSearchParams({ q: query, page: String(page) }).toString();
-  const key = search + ':' + revision;
-  const [result, setResult] = useState<{ key: string; data: AdminScopePage } | null>(null);
+  const [result, setResult] = useState<{
+    search: string;
+    revision: number;
+    data: AdminScopePage;
+  } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     request<AdminScopePage>('/api/admin/scopes?' + search, controller.signal)
       .then((data) => {
-        if (!controller.signal.aborted) setResult({ key, data });
+        if (!controller.signal.aborted) setResult({ search, revision, data });
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [key, search, request]);
-  const data = result?.key === key ? result.data : undefined;
+  }, [search, revision, request]);
+  const data = result?.search === search ? result.data : undefined;
+  const scopes = data?.items.toSorted((a, b) => Number(a.standard) - Number(b.standard)) ?? [];
+  const refreshing = result !== null && result.revision !== revision;
+  const pages = data ? Math.ceil(data.totalCount / data.pageSize) : 0;
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const q = String(new FormData(event.currentTarget).get('q') ?? '').trim();
+    setNotice('');
     setParams(q ? { q } : {});
   }
-  const reload = () => setRevision((value) => value + 1);
+  function refresh(message = '') {
+    setNotice(message);
+    setRevision((value) => value + 1);
+  }
   return (
     <>
       <div className="page-heading">
@@ -146,217 +217,79 @@ export function ScopesPage() {
           <h1>Scopes</h1>
           <p>Define the information applications may request.</p>
         </div>
-        <ScopeEditor
-          onSuccess={(id) => navigate('/scopes/' + encodeURIComponent(id))}
-          onReload={reload}
-        />
+        <ScopeEditor onSuccess={() => refresh('Scope created.')} onReload={refresh} />
       </div>
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Available scopes</h2>
-            <p>Standard scopes preserve the existing identity contract.</p>
-          </div>
-        </div>
-        <form className="table-toolbar" onSubmit={submit}>
-          <Input
-            key={query}
-            name="q"
-            aria-label="Search scopes"
-            defaultValue={query}
-            placeholder="Search by scope name…"
-            maxLength={200}
-          />
-          <Button type="submit" variant="outline">
-            Search
-          </Button>
-        </form>
-        {!data ? (
-          <p className="detail-panel" role="status">
-            Loading scopes…
-          </p>
-        ) : (
-          <>
-            <Table className="claim-table">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Claims</TableHead>
-                  <TableHead>Resources</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((scope) => (
-                  <TableRow key={scope.id}>
-                    <TableCell>
-                      <Link to={'/scopes/' + encodeURIComponent(scope.id) + '?' + search}>
-                        {scope.displayName || scope.name || scope.id}
-                      </Link>
-                      <div>
-                        <code>{scope.name}</code>{' '}
-                        {scope.standard && <Badge variant="secondary">Standard</Badge>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <code>{scope.claims.join(' · ') || 'None'}</code>
-                    </TableCell>
-                    <TableCell>
-                      <code>{scope.resources.join(' · ') || 'None'}</code>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {data.items.length === 0 && (
-              <p className="detail-panel">No scopes match this search.</p>
-            )}
-            <div className="table-footer user-pagination">
-              <span>
-                {data.totalCount} scopes · Page {data.page} of{' '}
-                {Math.max(1, Math.ceil(data.totalCount / data.pageSize))}
-              </span>
-              <div className="pagination-controls">
-                <Button
-                  variant="outline"
-                  disabled={data.page <= 1}
-                  onClick={() => setParams({ q: query, page: String(data.page - 1) })}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={data.page * data.pageSize >= data.totalCount}
-                  onClick={() => setParams({ q: query, page: String(data.page + 1) })}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </section>
-    </>
-  );
-}
-
-export function ScopeDetail() {
-  const { id = '' } = useParams();
-  const { search } = useLocation();
-  const navigate = useNavigate();
-  const { request } = useAdminSession();
-  const [revision, setRevision] = useState(0);
-  const [notice, setNotice] = useState('');
-  const key = id + ':' + revision;
-  const [result, setResult] = useState<{ key: string; data: AdminScope | null } | null>(null);
-  const reload = () => setRevision((value) => value + 1);
-  useEffect(() => {
-    const controller = new AbortController();
-    request<AdminScope>('/api/admin/scopes/' + encodeURIComponent(id), controller.signal, {
-      allowNotFound: true,
-    })
-      .then((data) => {
-        if (!controller.signal.aborted) setResult({ key, data });
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted && error instanceof AdminApiError && error.status === 404)
-          setResult({ key, data: null });
-      });
-    return () => controller.abort();
-  }, [id, key, request]);
-  const data = result?.key === key ? result.data : undefined;
-  return (
-    <>
-      <Link className="back-link" to={'/scopes' + search}>
-        <ArrowLeft size={15} />
-        All scopes
-      </Link>
       {notice && (
-        <p role="status" className="operation-notice">
+        <p className="operation-notice mb-4" role="status">
           {notice}
         </p>
       )}
-      {data === undefined ? (
-        <p role="status">Loading scope…</p>
-      ) : data === null ? (
-        <h1>Scope not found</h1>
-      ) : (
-        <>
-          <div className="page-heading">
-            <div>
-              <h1>{data.displayName || data.name || data.id}</h1>
-              <p>{data.name}</p>
-            </div>
-            {!data.standard && (
-              <ScopeEditor
-                data={data}
-                onSuccess={() => {
-                  setNotice('Scope updated.');
-                  reload();
-                }}
-                onReload={reload}
+      <section className="directory" aria-label="Available scopes">
+        <div className="directory-toolbar">
+          <form className="scope-search" role="search" onSubmit={submit}>
+            <div className="search-field">
+              <Search size={16} aria-hidden="true" />
+              <Input
+                key={query}
+                type="search"
+                name="q"
+                aria-label="Search scopes"
+                defaultValue={query}
+                placeholder="Search by scope name…"
+                maxLength={200}
               />
+            </div>
+            <Button type="submit" variant="outline">
+              Search
+            </Button>
+          </form>
+          <span role="status">
+            {data
+              ? `${data.totalCount} ${data.totalCount === 1 ? 'scope' : 'scopes'}`
+              : 'Loading scopes…'}
+          </span>
+        </div>
+        {data && (
+          <div aria-busy={refreshing} inert={refreshing}>
+            {scopes.length ? (
+              <ul className="directory-grid scope-grid" role="list" aria-label="Scopes">
+                {scopes.map((scope) => (
+                  <li key={scope.id}>
+                    <ScopeCard scope={scope} refresh={refresh} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="panel panel-note">
+                {query ? 'No scopes match this search.' : 'No scopes defined.'}
+              </p>
+            )}
+            {pages > 1 && (
+              <div className="table-footer user-pagination">
+                <span>
+                  Page {data.page} of {pages}
+                </span>
+                <div className="pagination-controls">
+                  <Button
+                    variant="outline"
+                    disabled={data.page <= 1}
+                    onClick={() => setParams({ q: query, page: String(data.page - 1) })}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={data.page >= pages}
+                    onClick={() => setParams({ q: query, page: String(data.page + 1) })}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
-          <section className="panel detail-panel">
-            <h2>Scope definition</h2>
-            {data.standard && (
-              <p>Standard scope. Its name and claim mapping are managed by the service.</p>
-            )}
-            <dl className="detail-list">
-              <div>
-                <dt>Description</dt>
-                <dd>{data.description || 'None'}</dd>
-              </div>
-              <div>
-                <dt>Scope ID</dt>
-                <dd>{data.id}</dd>
-              </div>
-              <div>
-                <dt>Claims</dt>
-                <dd>
-                  {data.claims.length
-                    ? data.claims.map((claim) => (
-                        <div key={claim}>
-                          <code>{claim}</code>
-                        </div>
-                      ))
-                    : 'None'}
-                </dd>
-              </div>
-              <div>
-                <dt>Resources</dt>
-                <dd>
-                  {data.resources.length
-                    ? data.resources.map((resource) => (
-                        <div key={resource}>
-                          <code>{resource}</code>
-                        </div>
-                      ))
-                    : 'None'}
-                </dd>
-              </div>
-            </dl>
-            {!data.standard && (
-              <div className="security-actions">
-                <AdminMutationDialog
-                  title="Delete scope"
-                  description="Permanently remove this definition. Scopes allowed by a registered client or used by an active authorization cannot be deleted."
-                  target={data.name ?? data.id}
-                  confirmation={data.name ?? data.id}
-                  path={'/api/admin/scopes/' + encodeURIComponent(id)}
-                  method="DELETE"
-                  input={(fields) => ({
-                    version: data.version,
-                    confirmation: fields.get('confirmation'),
-                  })}
-                  onSuccess={() => navigate('/scopes' + search)}
-                  onReload={reload}
-                />
-              </div>
-            )}
-          </section>
-        </>
-      )}
+        )}
+      </section>
     </>
   );
 }

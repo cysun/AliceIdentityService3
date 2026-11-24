@@ -16,8 +16,11 @@ import { useAdminSession } from '@/lib/admin-context';
 
 type Props = {
   title: string;
+  triggerContent?: ReactNode;
+  triggerLabel?: string;
   triggerVariant?: 'default' | 'outline';
   submitLabel?: string;
+  reloadLabel?: string;
   description: string;
   target?: string;
   path: string;
@@ -30,7 +33,12 @@ type Props = {
   onReload: () => void;
 };
 
-export function AdminMutationDialog({ triggerVariant = 'outline', ...props }: Props) {
+export function AdminMutationDialog({
+  triggerContent,
+  triggerLabel,
+  triggerVariant = 'outline',
+  ...props
+}: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   return (
@@ -41,6 +49,8 @@ export function AdminMutationDialog({ triggerVariant = 'outline', ...props }: Pr
       }}
     >
       <DialogTrigger
+        aria-label={triggerLabel ?? (triggerContent ? props.title : undefined)}
+        title={triggerLabel ?? (triggerContent ? props.title : undefined)}
         render={
           <Button
             variant={props.method === 'DELETE' ? 'destructive' : triggerVariant}
@@ -48,7 +58,7 @@ export function AdminMutationDialog({ triggerVariant = 'outline', ...props }: Pr
           />
         }
       >
-        {props.title}
+        {triggerContent ?? props.title}
       </DialogTrigger>
       <DialogContent className="admin-user-dialog" showCloseButton={!busy}>
         <DialogHeader>
@@ -119,7 +129,7 @@ function MutationForm({
                 props.onReload();
               }}
             >
-              Reload details
+              {props.reloadLabel ?? 'Reload details'}
             </Button>
           )}
         </div>

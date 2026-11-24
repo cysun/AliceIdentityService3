@@ -306,27 +306,32 @@ describe('live user directory', () => {
     });
   });
 
-  it('opens live profile, claims and security and preserves the list URL', async () => {
+  it('shows profile, security and claims together and preserves the list URL', async () => {
     api();
     mount('/users?q=actual&status=Confirmed');
     const user = userEvent.setup();
     await user.click(await screen.findByRole('link', { name: /Actual <person>/ }));
-    await screen.findByRole('heading', { name: person.name });
+    const heading = await screen.findByRole('heading', { name: person.name });
+    expect(
+      within(heading.closest('header')!).getByRole('button', { name: 'Delete account' }),
+    ).toBeVisible();
     expect(screen.queryByRole('button', { name: /refresh/i })).toBeNull();
-    expect(screen.getByText('actual-person')).toBeInTheDocument();
+    const profile = within(screen.getByRole('region', { name: 'Profile' }));
+    const security = within(screen.getByRole('region', { name: 'Security' }));
+    const claims = within(screen.getByRole('region', { name: 'Claims' }));
+    expect(profile.getByText('actual-person')).toBeVisible();
+    expect(profile.getByRole('button', { name: 'Edit account' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Back to users' })).toHaveAttribute(
       'href',
       '/users?q=actual&status=Confirmed',
     );
-    await user.click(screen.getByRole('tab', { name: 'Claims' }));
-    expect(screen.getByText('<script>example</script>')).toBeInTheDocument();
-    expect(document.querySelector('.detail-panel script')).toBeNull();
-    expect(screen.getByText('false')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Security' }));
-    expect(screen.getByText('Failed sign-in attempts').nextElementSibling).toHaveTextContent('2');
-    expect(
-      screen.queryByRole('button', { name: /add claim|assign claim/i }),
-    ).not.toBeInTheDocument();
+    expect(claims.getByText('<script>example</script>')).toBeVisible();
+    expect(document.querySelector('main script')).toBeNull();
+    expect(claims.getByText('false')).toBeVisible();
+    expect(claims.getByRole('button', { name: 'Add claim' })).toBeVisible();
+    expect(security.getByText('Failed sign-in attempts').nextElementSibling).toHaveTextContent('2');
+    expect(security.getByRole('button', { name: 'Reset password' })).toBeVisible();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Back to users' }));
     await screen.findByRole('table', { name: 'Users' });
     expect(screen.getByRole('textbox', { name: 'Search users' })).toHaveValue('actual');
@@ -347,17 +352,18 @@ describe('live user directory', () => {
     api(undefined, async () =>
       json({
         ...detail,
-        user: { ...person, email: null, administrator: false },
+        user: { ...person, email: null, administrator: false, status: 'Unconfirmed' },
+        emailConfirmed: false,
         claims: [],
-        security: { ...detail.security, hasPassword: false },
+        security: { ...detail.security, hasPassword: false, lockoutEnd: '2026-11-13T12:00:00Z' },
       }),
     );
     mount('/users/actual-person');
     await screen.findByRole('heading', { name: person.name });
-    await userEvent.setup().click(screen.getByRole('tab', { name: 'Claims' }));
-    expect(screen.getByText('No additional claims.')).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('tab', { name: 'Security' }));
+    expect(screen.getByText('No additional claims.')).toBeVisible();
     expect(screen.getByText('Password set').nextElementSibling).toHaveTextContent('No');
+    expect(screen.getByRole('button', { name: 'Lock account' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Unlock account' })).not.toBeInTheDocument();
   });
 
   it.each([401, 403])(
